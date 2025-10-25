@@ -11,6 +11,14 @@ import {
 } from "./objects.js";
 import { drawArrowLine, drawPolyline, nearestLineIndex } from "./lines.js";
 import { blankState, defaultDeploy } from "./state.js";
+import {
+  DEFAULT_STROKE_WIDTH,
+  ERASER_HIT_RADIUS,
+  LONG_PRESS_DURATION_MS,
+  MIN_SHAPE_SIZE,
+  ZOOM_IN_FACTOR,
+  ZOOM_OUT_FACTOR,
+} from "./constants.js";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -73,7 +81,8 @@ const dashMap = {
   dotted: [5, 6],
 };
 let selectedLineDash = dashMap[lineDashSelect?.value ?? "solid"].slice();
-let selectedLineWidth = Number(lineWidthInput?.value ?? 3) || 3;
+let selectedLineWidth =
+  Number(lineWidthInput?.value ?? DEFAULT_STROKE_WIDTH) || DEFAULT_STROKE_WIDTH;
 
 function bindPalette(container, onChoose, initialColor) {
   if (!container) return;
@@ -115,7 +124,12 @@ function updateLineWidthDisplay() {
 if (lineWidthInput) {
   updateLineWidthDisplay();
   lineWidthInput.addEventListener("input", () => {
-    selectedLineWidth = clampNumber(lineWidthInput.value, 1, 24, 3);
+    selectedLineWidth = clampNumber(
+      lineWidthInput.value,
+      1,
+      24,
+      DEFAULT_STROKE_WIDTH
+    );
     updateLineWidthDisplay();
     draw();
   });
@@ -154,6 +168,7 @@ let previewLine = null;
 let isDrawingFree = false;
 let freePoints = [];
 let isErasing = false;
+let eraserChanged = false;
 let shapeStart = null;
 let previewShape = null;
 let isDragging = false;
@@ -161,6 +176,7 @@ let longPressTimer = null;
 let didLongPress = false;
 let isPanKey = false;
 let isPanning = false;
+let isMultiTouchPanning = false;
 let panLast = { x: 0, y: 0 };
 
 // History
@@ -264,14 +280,18 @@ function resetView(redraw = true) {
   if (redraw) draw();
 }
 
-function getCanvasPoint(e) {
+function getCanvasPointFromClient({ clientX, clientY }) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
   return {
-    x: (e.clientX - rect.left) * scaleX,
-    y: (e.clientY - rect.top) * scaleY,
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
+}
+
+function getCanvasPoint(e) {
+  return getCanvasPointFromClient(e);
 }
 
 function screenToWorld(e) {
@@ -280,6 +300,21 @@ function screenToWorld(e) {
   return {
     x: (x - VIEW.offsetX) / scale,
     y: (y - VIEW.offsetY) / scale,
+  };
+}
+
+function getTouchCenter(touches) {
+  if (!touches || touches.length === 0) return null;
+  let sumX = 0;
+  let sumY = 0;
+  for (let i = 0; i < touches.length; i++) {
+    const touch = touches[i];
+    sumX += touch.clientX;
+    sumY += touch.clientY;
+  }
+  return {
+    clientX: sumX / touches.length,
+    clientY: sumY / touches.length,
   };
 }
 
@@ -306,7 +341,13 @@ function draw() {
 
   for (const line of objects.lines ?? []) {
     if (line.kind === "free") {
-      drawPolyline(ctx, line.points || [], line.color, line.width ?? 3, line.dash ?? []);
+      drawPolyline(
+        ctx,
+        line.points || [],
+        line.color,
+        line.width ?? DEFAULT_STROKE_WIDTH,
+        line.dash ?? []
+      );
     } else {
       drawArrowLine(
         ctx,
@@ -316,7 +357,7 @@ function draw() {
         line.y2,
         line.color,
         line.arrow,
-        line.width ?? 3,
+        line.width ?? DEFAULT_STROKE_WIDTH,
         line.dash ?? []
       );
     }
@@ -416,20 +457,37 @@ function setMode(newMode) {
   }
   if (mode !== "eraser") {
     isErasing = false;
+    eraserChanged = false;
   }
   updateCursor();
 }
 
-function startPan(e) {
+function startPanFromPointer(pointer) {
   isPanning = true;
-  panLast = getCanvasPoint(e);
+  panLast = getCanvasPointFromClient(pointer);
   cancelLongPress();
   updateCursor();
+}
+
+function updatePanFromPointer(pointer) {
+  if (!isPanning) return;
+  const current = getCanvasPointFromClient(pointer);
+  VIEW.offsetX += current.x - panLast.x;
+  VIEW.offsetY += current.y - panLast.y;
+  panLast = current;
+  clampView();
+  draw();
+}
+
+function startPan(e) {
+  isMultiTouchPanning = false;
+  startPanFromPointer(e);
 }
 
 function stopPan() {
   if (!isPanning) return;
   isPanning = false;
+  isMultiTouchPanning = false;
   updateCursor();
 }
 
@@ -450,51 +508,53 @@ function scheduleLongPress(list, index) {
     mode = "idle";
     dragTarget = null;
     updateCursor();
-  }, 500);
+  }, LONG_PRESS_DURATION_MS);
 }
 
 function scaleObjects(obj, fw, fh, tw, th) {
   if (!fw || !fh) return;
-  const sx = tw / fw;
-  const sy = th / fh;
-  const avg = (sx + sy) / 2;
-  for (const t of obj.towers ?? []) {
-    t.x *= sx;
-    t.y *= sy;
+  const scale = Math.min(tw / fw, th / fh);
+  if (!Number.isFinite(scale) || scale <= 0) return;
+  const offsetX = (tw - fw * scale) / 2;
+  const offsetY = (th - fh * scale) / 2;
+
+  const applyPoint = (point) => {
+    if (!point) return;
+    point.x = point.x * scale + offsetX;
+    point.y = point.y * scale + offsetY;
+  };
+
+  for (const tower of obj.towers ?? []) {
+    applyPoint(tower);
   }
-  for (const f of obj.flags ?? []) {
-    f.x *= sx;
-    f.y *= sy;
+  for (const flag of obj.flags ?? []) {
+    applyPoint(flag);
   }
-  for (const m of obj.markers ?? []) {
-    m.x *= sx;
-    m.y *= sy;
+  for (const marker of obj.markers ?? []) {
+    applyPoint(marker);
   }
   for (const line of obj.lines ?? []) {
     if (line.kind === "free") {
-      for (const p of line.points ?? []) {
-        p.x *= sx;
-        p.y *= sy;
+      for (const point of line.points ?? []) {
+        applyPoint(point);
       }
     } else {
-      line.x1 *= sx;
-      line.y1 *= sy;
-      line.x2 *= sx;
-      line.y2 *= sy;
+      line.x1 = line.x1 * scale + offsetX;
+      line.y1 = line.y1 * scale + offsetY;
+      line.x2 = line.x2 * scale + offsetX;
+      line.y2 = line.y2 * scale + offsetY;
     }
-    line.width = (line.width ?? 3) * avg;
+    line.width = (line.width ?? DEFAULT_STROKE_WIDTH) * scale;
   }
   for (const shape of obj.shapes ?? []) {
-    shape.x *= sx;
-    shape.y *= sy;
-    shape.width = (shape.width ?? 0) * sx;
-    shape.height = (shape.height ?? 0) * sy;
-    shape.strokeWidth = (shape.strokeWidth ?? 3) * avg;
+    applyPoint(shape);
+    shape.width = (shape.width ?? 0) * scale;
+    shape.height = (shape.height ?? 0) * scale;
+    shape.strokeWidth = (shape.strokeWidth ?? DEFAULT_STROKE_WIDTH) * scale;
   }
   for (const text of obj.texts ?? []) {
-    text.x *= sx;
-    text.y *= sy;
-    text.fontSize = (text.fontSize ?? 18) * avg;
+    applyPoint(text);
+    text.fontSize = (text.fontSize ?? 18) * scale;
   }
 }
 
@@ -540,23 +600,36 @@ function pickList(hit) {
 }
 
 function addTower(sprite) {
-  const x = WORLD.w * 0.2 + Math.random() * 40;
-  const y = WORLD.h * 0.3 + Math.random() * 40;
-  objects.towers.push({ x, y, sprite });
+  const center = getViewCenterWorld();
+  const position = center ?? {
+    x: WORLD.w * 0.2 + Math.random() * 40,
+    y: WORLD.h * 0.3 + Math.random() * 40,
+  };
+  objects.towers.push({ x: position.x, y: position.y, sprite });
   draw();
   commitChange();
 }
 
 function addFlag(sprite) {
-  const x = WORLD.w * 0.2 + Math.random() * 40;
-  const y = WORLD.h * 0.4 + Math.random() * 40;
-  objects.flags.push({ x, y, sprite });
+  const center = getViewCenterWorld();
+  const position = center ?? {
+    x: WORLD.w * 0.2 + Math.random() * 40,
+    y: WORLD.h * 0.4 + Math.random() * 40,
+  };
+  objects.flags.push({ x: position.x, y: position.y, sprite });
   draw();
   commitChange();
 }
 
 function addMarker() {
-  objects.markers.push({ x: WORLD.w / 2, y: WORLD.h / 2, color: selectedMarkerColor, text: "1" });
+  const center = getViewCenterWorld();
+  const position = center ?? { x: WORLD.w / 2, y: WORLD.h / 2 };
+  objects.markers.push({
+    x: position.x,
+    y: position.y,
+    color: selectedMarkerColor,
+    text: "1",
+  });
   draw();
   commitChange();
 }
@@ -636,7 +709,7 @@ function handlePanKey(e) {
 function onWheel(e) {
   e.preventDefault();
   const delta = e.deltaY;
-  const factor = delta < 0 ? 1.12 : 0.88;
+  const factor = delta < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
   const newZoom = clampNumber(VIEW.zoom * factor, VIEW.minZoom, VIEW.maxZoom, VIEW.zoom);
   const prevZoom = VIEW.zoom;
   if (Math.abs(newZoom - prevZoom) < 0.001) return;
@@ -705,16 +778,22 @@ function onPointerDown(e) {
 
   if (mode === "eraser") {
     isErasing = true;
-    const idx = nearestLineIndex(objects.lines, point.x, point.y, 6);
+    eraserChanged = false;
+    const idx = nearestLineIndex(
+      objects.lines,
+      point.x,
+      point.y,
+      ERASER_HIT_RADIUS
+    );
     if (idx >= 0) {
       objects.lines.splice(idx, 1);
+      eraserChanged = true;
       draw();
-      commitChange();
     }
     return;
   }
 
-  const hit = hitTest(objects, point.x, point.y);
+  const hit = hitTest(ctx, objects, point.x, point.y);
   if (hit) {
     const list = pickList(hit);
     if (!list) return;
@@ -732,23 +811,23 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   if (isPanning) {
-    const current = getCanvasPoint(e);
-    VIEW.offsetX += current.x - panLast.x;
-    VIEW.offsetY += current.y - panLast.y;
-    panLast = current;
-    clampView();
-    draw();
+    updatePanFromPointer(e);
     return;
   }
 
   const point = screenToWorld(e);
 
   if (mode === "eraser" && isErasing) {
-    const idx = nearestLineIndex(objects.lines, point.x, point.y, 6);
+    const idx = nearestLineIndex(
+      objects.lines,
+      point.x,
+      point.y,
+      ERASER_HIT_RADIUS
+    );
     if (idx >= 0) {
       objects.lines.splice(idx, 1);
+      eraserChanged = true;
       draw();
-      commitChange();
     }
     return;
   }
@@ -823,8 +902,10 @@ function onPointerUp(e) {
   }
 
   if (shapeStart && previewShape) {
-    const minSize = 6;
-    if (previewShape.width > minSize && previewShape.height > minSize) {
+    if (
+      previewShape.width > MIN_SHAPE_SIZE &&
+      previewShape.height > MIN_SHAPE_SIZE
+    ) {
       objects.shapes.push({
         type: previewShape.type,
         x: previewShape.x,
@@ -879,7 +960,11 @@ function onPointerUp(e) {
   }
 
   if (mode === "eraser" && isErasing) {
+    if (eraserChanged) {
+      commitChange();
+    }
     isErasing = false;
+    eraserChanged = false;
     return;
   }
 
@@ -905,7 +990,7 @@ function onPointerUp(e) {
   }
 
   if (mode === "idle") {
-    const hit = hitTest(objects, point.x, point.y);
+    const hit = hitTest(ctx, objects, point.x, point.y);
     if (hit && hit.type === "text") {
       const list = pickList(hit);
       createTextAt(point.x, point.y, list?.[hit.idx]);
@@ -924,6 +1009,7 @@ function onMouseLeave() {
   }
   if (mode === "eraser") {
     isErasing = false;
+    eraserChanged = false;
   }
   shapeStart = null;
   previewShape = null;
@@ -944,6 +1030,14 @@ canvas.addEventListener(
   "touchstart",
   (e) => {
     e.preventDefault();
+    if (e.touches.length >= 2) {
+      const center = getTouchCenter(e.touches);
+      if (center) {
+        isMultiTouchPanning = true;
+        startPanFromPointer(center);
+      }
+      return;
+    }
     if (e.touches.length > 0) onPointerDown(e.touches[0]);
   },
   { passive: false }
@@ -952,6 +1046,22 @@ canvas.addEventListener(
   "touchmove",
   (e) => {
     e.preventDefault();
+    if (e.touches.length >= 2) {
+      const center = getTouchCenter(e.touches);
+      if (center) {
+        if (!isPanning) {
+          isMultiTouchPanning = true;
+          startPanFromPointer(center);
+        } else {
+          updatePanFromPointer(center);
+        }
+      }
+      return;
+    }
+    if (isMultiTouchPanning) {
+      stopPan();
+      return;
+    }
     if (e.touches.length > 0) onPointerMove(e.touches[0]);
   },
   { passive: false }
@@ -960,6 +1070,27 @@ canvas.addEventListener(
   "touchend",
   (e) => {
     e.preventDefault();
+    if (isMultiTouchPanning) {
+      if (e.touches.length >= 2) {
+        const center = getTouchCenter(e.touches);
+        if (center) updatePanFromPointer(center);
+      } else {
+        stopPan();
+      }
+      return;
+    }
+    if (e.changedTouches.length > 0) onPointerUp(e.changedTouches[0]);
+  },
+  { passive: false }
+);
+canvas.addEventListener(
+  "touchcancel",
+  (e) => {
+    e.preventDefault();
+    if (isMultiTouchPanning) {
+      stopPan();
+      return;
+    }
     if (e.changedTouches.length > 0) onPointerUp(e.changedTouches[0]);
   },
   { passive: false }
@@ -968,7 +1099,7 @@ canvas.addEventListener(
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
   const point = screenToWorld(e);
-  const hit = hitTest(objects, point.x, point.y);
+  const hit = hitTest(ctx, objects, point.x, point.y);
   if (!hit) return;
   const list = pickList(hit);
   if (!list) return;
@@ -980,7 +1111,7 @@ canvas.addEventListener("contextmenu", (e) => {
 canvas.addEventListener("dblclick", (e) => {
   e.preventDefault();
   const point = screenToWorld(e);
-  const hit = hitTest(objects, point.x, point.y);
+  const hit = hitTest(ctx, objects, point.x, point.y);
   if (!hit) return;
   const list = pickList(hit);
   if (!list) return;
@@ -1201,6 +1332,14 @@ function saveMaps() {
   localStorage.setItem(MAPS_KEY, JSON.stringify(userMaps));
 }
 
+function generateMapId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `map-${crypto.randomUUID()}`;
+  }
+  const random = Math.random().toString(36).slice(2, 8);
+  return `map-${Date.now().toString(36)}-${random}`;
+}
+
 function renderMaps() {
   if (!mapSelect) return;
   mapSelect.innerHTML = "";
@@ -1244,7 +1383,7 @@ mapFileInput?.addEventListener("change", (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     const name = prompt("輸入地圖名稱：", file.name.replace(/\.[^.]+$/, "")) || "自訂地圖";
-    const id = `map-${Date.now()}`;
+    const id = generateMapId();
     maps.push({ id, name, src: reader.result, builtIn: false });
     saveMaps();
     renderMaps();
@@ -1260,7 +1399,7 @@ deleteMapBtn?.addEventListener("click", () => {
   if (!confirm(`刪除地圖「${map.name}」？`)) return;
   maps = maps.filter((m) => m.id !== map.id);
   saveMaps();
-  const next = maps.find((m) => m.id !== map.id) ?? DEFAULT_MAP;
+  const next = maps.length > 0 ? maps[0] : DEFAULT_MAP;
   renderMaps();
   setCurrentMap(next.id);
 });

@@ -1,30 +1,64 @@
 // 畫線與箭頭、線段距離、擦除（支援自由曲線 polyline）
+import {
+  ARROW_HEAD_SIZE_MULTIPLIER,
+  DEFAULT_STROKE_WIDTH,
+  MIN_ARROW_HEAD_SIZE,
+} from "./constants.js";
 
-export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow, width = 3, dash = []) {
+export function drawArrowLine(
+  ctx,
+  x1,
+  y1,
+  x2,
+  y2,
+  color,
+  arrow,
+  width = DEFAULT_STROKE_WIDTH,
+  dash = []
+) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.lineCap = "round";
   ctx.setLineDash(dash);
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
 
-  const head = (fx,fy, tx,ty) => {
-    const a = Math.atan2(ty - fy, tx - fx);
-    const s = Math.max(6, width * 3.2);
+  const head = (fx, fy, tx, ty) => {
+    const angle = Math.atan2(ty - fy, tx - fx);
+    const arrowSize = Math.max(
+      MIN_ARROW_HEAD_SIZE,
+      (width ?? DEFAULT_STROKE_WIDTH) * ARROW_HEAD_SIZE_MULTIPLIER
+    );
     ctx.beginPath();
-    ctx.moveTo(tx,ty);
-    ctx.lineTo(tx - s*Math.cos(a - Math.PI/6), ty - s*Math.sin(a - Math.PI/6));
-    ctx.lineTo(tx - s*Math.cos(a + Math.PI/6), ty - s*Math.sin(a + Math.PI/6));
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(
+      tx - arrowSize * Math.cos(angle - Math.PI / 6),
+      ty - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+      tx - arrowSize * Math.cos(angle + Math.PI / 6),
+      ty - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
     ctx.closePath();
-    ctx.fillStyle = color; ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fill();
   };
-  if (arrow === "right" || arrow === "both") head(x1,y1,x2,y2);
-  if (arrow === "left"  || arrow === "both") head(x2,y2,x1,y1);
+  if (arrow === "right" || arrow === "both") head(x1, y1, x2, y2);
+  if (arrow === "left" || arrow === "both") head(x2, y2, x1, y1);
 
   ctx.restore();
 }
 
-export function drawPolyline(ctx, points, color, width = 3, dash = []) {
+export function drawPolyline(
+  ctx,
+  points,
+  color,
+  width = DEFAULT_STROKE_WIDTH,
+  dash = []
+) {
   if (points.length < 2) return;
   ctx.save();
   ctx.strokeStyle = color;
@@ -33,7 +67,9 @@ export function drawPolyline(ctx, points, color, width = 3, dash = []) {
   ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
-  for (let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
   ctx.stroke();
   ctx.restore();
 }
@@ -68,15 +104,14 @@ export function nearestLineIndex(lines, x, y, threshold = 8) {
     } else {
       d = pointToSegDist(x,y, ln.x1,ln.y1, ln.x2,ln.y2);
     }
-    const reach = Math.max(threshold, (ln.width ?? 3) * 1.2);
+    const reach = Math.max(
+      threshold,
+      (ln.width ?? DEFAULT_STROKE_WIDTH) * 1.2
+    );
     if (d <= reach && d < bestD) {
       bestD = d;
       best = i;
     }
   });
   return best;
-}
-
-export function lineEraserThreshold(line) {
-  return Math.max(8, (line.width ?? 3) * 1.6);
 }
