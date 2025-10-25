@@ -28,14 +28,14 @@ export function applySettings(partial) {
 
 // === 載入圖片 ===
 // [修正]
-// 原路徑: /static/img/...
-// 新路徑: ../img/... (因為 objects.js 在 js 資料夾, 需要先 ../ 回到 static 層, 再進入 img 層)
+// 瀏覽器是從 index.html 的位置來解析 .src 路徑
+// 因此路徑必須是 'static/img/...'
 export function loadImages() {
-  BG.src = "../img/map_clean.jpg";
-  SPRITES.tower_blue.src = "../img/tower_blue.png";
-  SPRITES.tower_red.src  = "../img/tower_red.png";
-  SPRITES.flag_blue.src  = "../img/flag_blue.png";
-  SPRITES.flag_red.src   = "../img/flag_red.png";
+  BG.src = "static/img/map_clean.jpg";
+  SPRITES.tower_blue.src = "static/img/tower_blue.png";
+  SPRITES.tower_red.src  = "static/img/tower_red.png";
+  SPRITES.flag_blue.src  = "static/img/flag_blue.png";
+  SPRITES.flag_red.src   = "static/img/flag_red.png";
 }
 
 // === 繪製 ===
