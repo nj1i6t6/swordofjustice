@@ -1,15 +1,16 @@
 // 畫線與箭頭、線段距離、擦除（支援自由曲線 polyline）
 
-export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow) {
+export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow, width = 3, dash = []) {
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = width;
   ctx.lineCap = "round";
+  ctx.setLineDash(dash);
   ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
 
   const head = (fx,fy, tx,ty) => {
     const a = Math.atan2(ty - fy, tx - fx);
-    const s = 10;
+    const s = Math.max(6, width * 3.2);
     ctx.beginPath();
     ctx.moveTo(tx,ty);
     ctx.lineTo(tx - s*Math.cos(a - Math.PI/6), ty - s*Math.sin(a - Math.PI/6));
@@ -23,12 +24,13 @@ export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow) {
   ctx.restore();
 }
 
-export function drawPolyline(ctx, points, color) {
+export function drawPolyline(ctx, points, color, width = 3, dash = []) {
   if (points.length < 2) return;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = width;
   ctx.lineCap = "round";
+  ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
   for (let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
@@ -66,7 +68,15 @@ export function nearestLineIndex(lines, x, y, threshold = 8) {
     } else {
       d = pointToSegDist(x,y, ln.x1,ln.y1, ln.x2,ln.y2);
     }
-    if (d < bestD) { bestD = d; best = i; }
+    const reach = Math.max(threshold, (ln.width ?? 3) * 1.2);
+    if (d <= reach && d < bestD) {
+      bestD = d;
+      best = i;
+    }
   });
-  return bestD <= threshold ? best : -1;
+  return best;
+}
+
+export function lineEraserThreshold(line) {
+  return Math.max(8, (line.width ?? 3) * 1.6);
 }

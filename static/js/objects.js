@@ -7,6 +7,7 @@ export const SPRITES = {
   flag_red:   new Image(),
 };
 export const BG = new Image();
+export const DEFAULT_BG_SRC = "static/img/map_clean.jpg";
 
 // === 尺寸設定 ===
 export const SETTINGS = {
@@ -31,7 +32,6 @@ export function applySettings(partial) {
 // 瀏覽器是從 index.html 的位置來解析 .src 路徑
 // 因此路徑必須是 'static/img/...'
 export function loadImages() {
-  BG.src = "static/img/map_clean.jpg";
   SPRITES.tower_blue.src = "static/img/tower_blue.png";
   SPRITES.tower_red.src  = "static/img/tower_red.png";
   SPRITES.flag_blue.src  = "static/img/flag_blue.png";
@@ -72,15 +72,88 @@ export function drawMarker(ctx, x, y, color, text) {
   ctx.restore();
 }
 
+export function drawShape(ctx, shape) {
+  const { type, x, y, width, height, color, strokeWidth = 3, dash = [] } = shape;
+  if (!width || !height) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = strokeWidth;
+  ctx.setLineDash(dash);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (type === "circle") {
+    const rx = Math.abs(width) / 2;
+    const ry = Math.abs(height) / 2;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    const w = Math.abs(width);
+    const h = Math.abs(height);
+    ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+  }
+  ctx.restore();
+}
+
+export function drawTextNote(ctx, note) {
+  const { x, y, text = "", color = "#ffffff", fontSize = 18, align = "left" } = note;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "top";
+  const padding = 4;
+  if (note.background) {
+    const metrics = ctx.measureText(text);
+    const lineHeight = fontSize * 1.2;
+    const w = metrics.width + padding * 2;
+    const h = lineHeight + padding * 2;
+    const drawX = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+    ctx.fillStyle = note.background;
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(drawX, y - padding, w, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+  }
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
 
 // === 命中測試 ===
 // 讓塔與旗整張繪製矩形都可被拖曳／右鍵刪除
 export function hitTest(objects, x, y) {
-// 1️⃣ 先測標記（修正命中偏移）
-  for (let i = objects.markers.length - 1; i >= 0; i--) {
-    const m = objects.markers[i];
+  const markers = objects.markers ?? [];
+  const flags = objects.flags ?? [];
+  const towers = objects.towers ?? [];
+  const shapes = objects.shapes ?? [];
+  const texts = objects.texts ?? [];
+
+  // 文字
+  for (let i = texts.length - 1; i >= 0; i--) {
+    const note = texts[i];
+    const fontSize = note.fontSize ?? 18;
+    const width = (note.text?.length ?? 0) * fontSize * 0.6;
+    const height = fontSize * 1.3;
+    let left;
+    if (note.align === "center") {
+      left = note.x - width / 2;
+    } else if (note.align === "right") {
+      left = note.x - width;
+    } else {
+      left = note.x;
+    }
+    const top = note.y;
+    if (x >= left && x <= left + width && y >= top && y <= top + height) {
+      return { type: "text", idx: i };
+    }
+  }
+
+  // 標記（修正命中偏移）
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i];
     const r = 18; // 命中半徑，可調整（建議略大於繪製半徑）
-    
+
     // 🔹 若畫面上實際命中點偏上，可將 hitbox 向下平移幾個像素
     const offsetY = 5; // ↓ 正值代表向下修正命中區域
     const dx = m.x - x;
@@ -93,9 +166,32 @@ export function hitTest(objects, x, y) {
 
 
 
-// 2️⃣ 旗
-  for (let i = objects.flags.length - 1; i >= 0; i--) {
-    const f = objects.flags[i];
+  // 形狀
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const s = shapes[i];
+    const w = Math.abs(s.width ?? 0);
+    const h = Math.abs(s.height ?? 0);
+    if (!w || !h) continue;
+    if (s.type === "circle") {
+      const rx = w / 2;
+      const ry = h / 2;
+      const dx = (x - s.x) / rx;
+      const dy = (y - s.y) / ry;
+      if (dx * dx + dy * dy <= 1.1) {
+        return { type: "shape", idx: i };
+      }
+    } else {
+      const left = s.x - w / 2;
+      const top = s.y - h / 2;
+      if (x >= left && x <= left + w && y >= top && y <= top + h) {
+        return { type: "shape", idx: i };
+      }
+    }
+  }
+
+  // 旗
+  for (let i = flags.length - 1; i >= 0; i--) {
+    const f = flags[i];
     const w = SETTINGS.flagSize;  // 寬度
     const h = SETTINGS.flagSize * 1.1;  // 高度（旗子的高度小於寬度）
     const ox = SETTINGS.offset.flagX;
@@ -109,9 +205,9 @@ export function hitTest(objects, x, y) {
 
 
 
-// 3️⃣ 塔
-  for (let i = objects.towers.length - 1; i >= 0; i--) {
-    const t = objects.towers[i];
+// 塔
+  for (let i = towers.length - 1; i >= 0; i--) {
+    const t = towers[i];
     const w = SETTINGS.towerSize * 0.9;   // 寬略小一點
     const h = SETTINGS.towerSize * 1.1;   // 高度與實際塔身相符
     const ox = SETTINGS.offset.towerX;

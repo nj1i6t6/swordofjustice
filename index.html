@@ -8,22 +8,36 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="left">
+    <aside class="left">
+      <div class="section">
+        <h3>地圖</h3>
+        <div class="row">
+          <select id="mapSelect"></select>
+        </div>
+        <div class="row">
+          <button id="uploadMapBtn">新增地圖</button>
+          <button id="deleteMapBtn" class="danger">刪除地圖</button>
+        </div>
+        <p class="hint">自訂地圖會儲存在瀏覽器本機，可隨時切換。</p>
+      </div>
+
       <div class="section">
         <h3>物件：塔 / 旗</h3>
         <div class="row">
           <button id="addBlueTower">新增藍塔</button>
           <button id="addRedTower">新增紅塔</button>
+        </div>
+        <div class="row">
           <button id="addBlueFlag">新增藍旗</button>
           <button id="addRedFlag">新增紅旗</button>
         </div>
-        <p class="hint">拖曳移動；右鍵刪除</p>
+        <p class="hint">拖曳移動 · 右鍵刪除</p>
       </div>
 
       <div class="section">
-        <h3>標記</h3>
+        <h3>標記 / 文字</h3>
         <div class="row">
-          <div class="palette palette-marker" id="markerPalette">
+          <div class="palette" id="markerPalette">
             <button class="chip" data-color="#ef4444" title="紅"></button>
             <button class="chip" data-color="#f97316" title="橙"></button>
             <button class="chip active" data-color="#fbbf24" title="黃"></button>
@@ -33,13 +47,25 @@
           </div>
           <button id="addMarker">新增標記</button>
         </div>
-        <p class="hint">雙擊更改文字；右鍵刪除</p>
+        <div class="row">
+          <div class="palette" id="textPalette">
+            <button class="chip active" data-color="#ffffff" title="白"></button>
+            <button class="chip" data-color="#e11d48" title="桃紅"></button>
+            <button class="chip" data-color="#38bdf8" title="天藍"></button>
+            <button class="chip" data-color="#34d399" title="薄荷"></button>
+            <button class="chip" data-color="#f97316" title="橙"></button>
+          </div>
+          <label for="textSize">字體</label>
+          <input id="textSize" type="number" min="12" max="48" value="18">
+          <button id="textToolBtn">文字工具</button>
+        </div>
+        <p class="hint">點擊加入純文字 · 雙擊編輯 · 右鍵刪除</p>
       </div>
 
       <div class="section">
-        <h3>畫線</h3>
+        <h3>畫線 / 形狀</h3>
         <div class="row">
-          <div class="palette palette-line" id="linePalette">
+          <div class="palette" id="linePalette">
             <button class="chip" data-color="#ef4444" title="紅"></button>
             <button class="chip" data-color="#f97316" title="橙"></button>
             <button class="chip" data-color="#fbbf24" title="黃"></button>
@@ -47,9 +73,21 @@
             <button class="chip" data-color="#3b82f6" title="藍"></button>
             <button class="chip" data-color="#a855f7" title="紫"></button>
           </div>
-          <label>箭頭</label>
+        </div>
+        <div class="row">
+          <label for="lineDash">線型</label>
+          <select id="lineDash">
+            <option value="solid">實線</option>
+            <option value="dashed">虛線</option>
+            <option value="dotted">點線</option>
+          </select>
+          <label for="lineWidth">粗細</label>
+          <input id="lineWidth" type="range" min="1" max="12" value="3">
+          <span id="lineWidthValue">3px</span>
+          <label for="arrowType">箭頭</label>
           <select id="arrowType">
             <option value="none">直線</option>
+            <option value="right">右箭頭</option>
             <option value="left">左箭頭</option>
             <option value="both">雙向箭頭</option>
           </select>
@@ -57,34 +95,66 @@
         <div class="row">
           <button id="drawLineBtn">畫線模式</button>
           <button id="freehandBtn">自由畫模式</button>
+          <button id="circleToolBtn">圓形</button>
+          <button id="rectToolBtn">矩形</button>
         </div>
-        <p class="hint">畫線：按住滑鼠拖動。自由畫：按住滑鼠隨便畫。</p>
+        <div class="row">
+          <button id="eraserBtn">橡皮擦</button>
+        </div>
+        <p class="hint">畫線/形狀：按住滑鼠拖曳 · 自由畫：按住滑鼠隨意描繪。</p>
       </div>
 
       <div class="section">
-        <h3>佈盤</h3>
+        <h3>編輯</h3>
         <div class="row">
-          <button id="swapColorBtn" class="ok">佈盤</button>
+          <button id="undoBtn">復原</button>
+          <button id="redoBtn">重做</button>
+          <button id="clearBoardBtn" class="danger">清空畫布</button>
         </div>
-        <p class="hint">點擊後排列塔旗；再次點擊兩邊顏色互換</p>
+        <div class="row">
+          <button id="swapColorBtn" class="ok">自動佈盤 / 換邊</button>
+        </div>
       </div>
 
       <div class="section">
-        <h3>橡皮擦 / 復原</h3>
+        <h3>視野</h3>
         <div class="row">
-          <button id="eraserBtn">橡皮擦（刪線）</button>
-          <button id="resetBtn" class="danger">復原</button>
+          <button id="resetViewBtn">重設視角</button>
+        </div>
+        <p class="hint">滑鼠滾輪縮放 · 按住空白鍵拖曳可平移視角。</p>
+      </div>
+
+      <div class="section">
+        <h3>存檔</h3>
+        <div class="row">
+          <button id="saveJsonBtn">下載 JSON</button>
+          <button id="loadJsonBtn">讀取 JSON</button>
           <button id="savePng" class="ok">存成 PNG</button>
         </div>
+        <div class="row">
+          <select id="slotSelect"></select>
+          <button id="saveSlotBtn">存到插槽</button>
+          <button id="loadSlotBtn">載入插槽</button>
+        </div>
+        <div class="row">
+          <button id="renameSlotBtn">改名</button>
+          <button id="deleteSlotBtn" class="danger">刪除存檔</button>
+        </div>
       </div>
-    </div>
+    </aside>
 
     <div class="canvas-wrap">
       <canvas id="board" width="1047" height="597"></canvas>
-      <div id="hint">右鍵刪除物件 · 雙擊標記可改數字</div>
+      <div class="canvas-overlay">
+        <div id="zoomLevel">100%</div>
+        <div id="hint">右鍵刪除物件 · 雙擊可編輯標記/文字</div>
+      </div>
     </div>
   </div>
 
+  <input type="file" id="mapFile" accept="image/*" hidden>
+  <input type="file" id="jsonFile" accept="application/json" hidden>
+
   <script type="module" src="static/js/board.js"></script>
-  </body>
+</body>
 </html>
