@@ -1,15 +1,23 @@
+import {
+  ARROW_HEAD_BASE_SIZE,
+  ARROW_HEAD_SIZE_MULTIPLIER,
+  DEFAULT_STROKE_WIDTH,
+} from "./constants.js";
+
 // 畫線與箭頭、線段距離、擦除（支援自由曲線 polyline）
 
-export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow) {
+export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow, options = {}) {
+  const { lineWidth = DEFAULT_STROKE_WIDTH, dash = [] } = options;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = lineWidth;
   ctx.lineCap = "round";
+  ctx.setLineDash(dash);
   ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
 
   const head = (fx,fy, tx,ty) => {
     const a = Math.atan2(ty - fy, tx - fx);
-    const s = 10;
+    const s = Math.max(ARROW_HEAD_BASE_SIZE, lineWidth * ARROW_HEAD_SIZE_MULTIPLIER);
     ctx.beginPath();
     ctx.moveTo(tx,ty);
     ctx.lineTo(tx - s*Math.cos(a - Math.PI/6), ty - s*Math.sin(a - Math.PI/6));
@@ -23,12 +31,14 @@ export function drawArrowLine(ctx, x1,y1,x2,y2, color, arrow) {
   ctx.restore();
 }
 
-export function drawPolyline(ctx, points, color) {
+export function drawPolyline(ctx, points, color, options = {}) {
   if (points.length < 2) return;
+  const { lineWidth = DEFAULT_STROKE_WIDTH, dash = [] } = options;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = lineWidth;
   ctx.lineCap = "round";
+  ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
   for (let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
@@ -66,7 +76,10 @@ export function nearestLineIndex(lines, x, y, threshold = 8) {
     } else {
       d = pointToSegDist(x,y, ln.x1,ln.y1, ln.x2,ln.y2);
     }
+    const effectiveThreshold = Math.max(threshold, (ln.lineWidth || DEFAULT_STROKE_WIDTH) * 0.75);
     if (d < bestD) { bestD = d; best = i; }
   });
-  return bestD <= threshold ? best : -1;
+  const ln = best >= 0 ? lines[best] : null;
+  const effectiveThreshold = ln ? Math.max(threshold, (ln.lineWidth || DEFAULT_STROKE_WIDTH) * 0.75) : threshold;
+  return bestD <= effectiveThreshold ? best : -1;
 }

@@ -1,5 +1,7 @@
 // ====== objects.js ======
 
+import { DEFAULT_STROKE_WIDTH, TEXT_LINE_HEIGHT_RATIO } from "./constants.js";
+
 export const SPRITES = {
   tower_blue: new Image(),
   tower_red:  new Image(),
@@ -30,12 +32,12 @@ export function applySettings(partial) {
 // [修正]
 // 瀏覽器是從 index.html 的位置來解析 .src 路徑
 // 因此路徑必須是 'static/img/...'
-export function loadImages() {
-  BG.src = "static/img/map_clean.jpg";
+export function loadImages(mapSrc) {
   SPRITES.tower_blue.src = "static/img/tower_blue.png";
   SPRITES.tower_red.src  = "static/img/tower_red.png";
   SPRITES.flag_blue.src  = "static/img/flag_blue.png";
   SPRITES.flag_red.src   = "static/img/flag_red.png";
+  if (mapSrc) BG.src = mapSrc;
 }
 
 // === 繪製 ===
@@ -75,12 +77,59 @@ export function drawMarker(ctx, x, y, color, text) {
 
 // === 命中測試 ===
 // 讓塔與旗整張繪製矩形都可被拖曳／右鍵刪除
-export function hitTest(objects, x, y) {
+export function hitTest(ctx, objects, x, y) {
+  // 0️⃣ 文字（可拖動、刪除）
+  if (objects.texts) {
+    for (let i = objects.texts.length - 1; i >= 0; i--) {
+      const t = objects.texts[i];
+      if (!t) continue;
+      const size = t.size || 18;
+      ctx.save();
+      ctx.font = `${t.weight || "600"} ${size}px system-ui, sans-serif`;
+      const metrics = ctx.measureText(t.text || "");
+      ctx.restore();
+      const width = Math.max(size, metrics.width || 0);
+      const height = size * TEXT_LINE_HEIGHT_RATIO;
+      let left = t.x;
+      if (t.align === "center") left = t.x - width / 2;
+      if (t.align === "right") left = t.x - width;
+      const top = t.y;
+      if (x >= left - 4 && x <= left + width + 4 && y >= top - 4 && y <= top + height + 4) {
+        return { type: "text", idx: i };
+      }
+    }
+  }
+
+  // 0.5️⃣ 形狀（圓 / 矩形）
+  if (objects.shapes) {
+    for (let i = objects.shapes.length - 1; i >= 0; i--) {
+      const s = objects.shapes[i];
+      if (!s) continue;
+      if (s.kind === "circle") {
+        const dx = x - s.x;
+        const dy = y - s.y;
+        const r = s.r || 1;
+        if (dx * dx + dy * dy <= Math.pow(r + Math.max(4, (s.lineWidth || DEFAULT_STROKE_WIDTH) / 2), 2)) {
+          return { type: "shape", idx: i };
+        }
+      } else if (s.kind === "rect") {
+        const halfW = Math.abs(s.w || 0) / 2;
+        const halfH = Math.abs(s.h || 0) / 2;
+        if (!halfW || !halfH) continue;
+        const left = s.x - halfW;
+        const top = s.y - halfH;
+        if (x >= left - 4 && x <= left + halfW * 2 + 4 && y >= top - 4 && y <= top + halfH * 2 + 4) {
+          return { type: "shape", idx: i };
+        }
+      }
+    }
+  }
+
 // 1️⃣ 先測標記（修正命中偏移）
   for (let i = objects.markers.length - 1; i >= 0; i--) {
     const m = objects.markers[i];
     const r = 18; // 命中半徑，可調整（建議略大於繪製半徑）
-    
+
     // 🔹 若畫面上實際命中點偏上，可將 hitbox 向下平移幾個像素
     const offsetY = 5; // ↓ 正值代表向下修正命中區域
     const dx = m.x - x;
