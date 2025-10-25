@@ -1,0 +1,90 @@
+<html lang="zh-Hant"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>逆水寒 戰術推演盤</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="left">
+      <div class="section">
+        <h3>物件：塔 / 旗</h3>
+        <div class="row">
+          <button id="addBlueTower">新增藍塔</button>
+          <button id="addRedTower">新增紅塔</button>
+          <button id="addBlueFlag">新增藍旗</button>
+          <button id="addRedFlag">新增紅旗</button>
+        </div>
+        <p class="hint">拖曳移動；右鍵刪除</p>
+      </div>
+
+      <div class="section">
+        <h3>標記</h3>
+        <div class="row">
+          <div class="palette palette-marker" id="markerPalette">
+            <button class="chip" data-color="#ef4444" title="紅"></button>
+            <button class="chip" data-color="#f97316" title="橙"></button>
+            <button class="chip active" data-color="#fbbf24" title="黃"></button>
+            <button class="chip" data-color="#22c55e" title="綠"></button>
+            <button class="chip" data-color="#3b82f6" title="藍"></button>
+            <button class="chip" data-color="#a855f7" title="紫"></button>
+          </div>
+          <button id="addMarker">新增標記</button>
+        </div>
+        <p class="hint">雙擊更改文字；右鍵刪除</p>
+      </div>
+
+      <div class="section">
+        <h3>畫線</h3>
+        <div class="row">
+          <div class="palette palette-line" id="linePalette">
+            <button class="chip" data-color="#ef4444" title="紅"></button>
+            <button class="chip" data-color="#f97316" title="橙"></button>
+            <button class="chip" data-color="#fbbf24" title="黃"></button>
+            <button class="chip active" data-color="#22c55e" title="綠"></button>
+            <button class="chip" data-color="#3b82f6" title="藍"></button>
+            <button class="chip" data-color="#a855f7" title="紫"></button>
+          </div>
+          <label>箭頭</label>
+          <select id="arrowType">
+            <option value="none">直線</option>
+            <option value="left">左箭頭</option>
+            <option value="both">雙向箭頭</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="drawLineBtn">畫線模式</button>
+          <button id="freehandBtn">自由畫模式</button>
+        </div>
+        <p class="hint">畫線：按住滑鼠拖動。自由畫：按住滑鼠隨便畫。</p>
+      </div>
+
+      <!-- 陣營切換 -->
+      <div class="section">
+        <h3>佈盤</h3>
+        <div class="row">
+          <button id="swapColorBtn" class="ok">佈盤</button>
+        </div>
+        <p class="hint">點擊後排列塔旗；再次點擊兩邊顏色互換</p>
+      </div>
+
+      <div class="section">
+        <h3>橡皮擦 / 復原</h3>
+        <div class="row">
+          <button id="eraserBtn">橡皮擦（刪線）</button>
+          <button id="resetBtn" class="danger">復原</button>
+          <button id="savePng" class="ok">存成 PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="board" width="1047" height="597"></canvas>
+      <div id="hint">右鍵刪除物件 · 雙擊標記可改數字</div>
+    </div>
+  </div>
+
+  <script type="module" src="/static/js/board.js"></script>
+  <!-- <script type="module" src="/static/js/locator.js"></script>-->
+
+</body></html>
