@@ -47,21 +47,12 @@ function endWorld(){ ctx.setTransform(1,0,0,1,0,0); }
 // 螢幕→世界
 function screenToWorld(e) {
   const rect = canvas.getBoundingClientRect();
-
-  // 真實滑鼠在 canvas 中的相對位置 (0 ~ 1)
   const px = (e.clientX - rect.left) / rect.width;
   const py = (e.clientY - rect.top) / rect.height;
-
-  // 轉換成世界座標（這樣就不受 DPI、螢幕縮放、scroll、或 CSS 影響）
   const x = px * WORLD.w;
   const y = py * WORLD.h;
-
   return { x, y };
 }
-
-
-
-
 
 // 設計→世界（載入時一次性換算）
 function scaleObjects(obj, fw, fh, tw, th){
@@ -76,7 +67,7 @@ function scaleObjects(obj, fw, fh, tw, th){
 }
 
 // === 狀態 ===
-let objects = defaultDeploy(DESIGN.w, DESIGN.h); // 先用設計尺寸建立，再轉到世界
+let objects = defaultDeploy(DESIGN.w, DESIGN.h); 
 let mode = "idle"; // idle | drag | drawLine | freehand | eraser
 let dragTarget = null;
 let dragOffset = {x:0, y:0};
@@ -95,27 +86,25 @@ let isErasing = false;
 // 陣營切換
 let teamSwap = false;
 
+// [新增] 觸控增強：區分拖曳、點擊、長按
+let isDragging = false;     // 是否真的有拖曳
+let longPressTimer = null;  // 長按計時器
+let didLongPress = false;   // 是否已觸發長按 (避免放開時又觸發點擊)
+
 // === 載圖與自適應 ===
 loadImages();
 BG.onload = ()=>{
   WORLD.w = BG.naturalWidth  || BG.width  || 1280;
   WORLD.h = BG.naturalHeight || BG.height || 720;
-
-  // 初始化物件（以設計尺寸建立後轉換到實際地圖大小）
   objects = defaultDeploy(DESIGN.w, DESIGN.h);
   scaleObjects(objects, DESIGN.w, DESIGN.h, WORLD.w, WORLD.h);
-
-  // 先套用塔與旗的正確陣營顏色（左藍右紅）
   swapSpritesByRegion();
-
-  // 再繪製畫面（確保旗塔立即顯示）
   fitCanvas();
   draw();
 };
 
 window.addEventListener("resize", fitCanvas);
 
-// 讓 canvas 直接等比縮放到能容納 WORLD 的大小（無黑邊、不置中）
 function fitCanvas(){
   const rect = canvas.parentElement.getBoundingClientRect();
   const s = Math.min(rect.width / WORLD.w, rect.height / WORLD.h);
@@ -145,16 +134,13 @@ function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   beginWorld();
-  // 背景
   if (BG.complete) ctx.drawImage(BG, 0, 0, WORLD.w, WORLD.h);
 
-  // 已完成的線
   for (const ln of objects.lines){
     if (ln.kind === "free") drawPolyline(ctx, ln.points, ln.color);
     else drawArrowLine(ctx, ln.x1, ln.y1, ln.x2, ln.y2, ln.color, ln.arrow);
   }
 
-  // 預覽：直線 / 自由畫
   if (previewLine){
     ctx.globalAlpha = 0.9;
     drawArrowLine(ctx, previewLine.x1, previewLine.y1, previewLine.x2, previewLine.y2, previewLine.color, previewLine.arrow);
@@ -166,7 +152,6 @@ function draw(){
     ctx.globalAlpha = 1.0;
   }
 
-  // 物件
   for (const t of objects.towers) drawTower(ctx, t.x, t.y, t.sprite);
   for (const f of objects.flags)  drawFlag(ctx,  f.x, f.y, f.sprite);
   for (const m of objects.markers)drawMarker(ctx, m.x, m.y, m.color, m.text);
@@ -200,7 +185,6 @@ eraserBtn.onclick    = ()=> setMode("eraser", eraserBtn);
 swapColorBtn && (swapColorBtn.onclick = ()=>{ teamSwap = !teamSwap; swapSpritesByRegion(); draw(); });
 
 resetBtn.onclick = ()=>{
-  // 重新依 DESIGN 產生→轉到 WORLD，確保與你記的座標一致
   objects = defaultDeploy(DESIGN.w, DESIGN.h);
   scaleObjects(objects, DESIGN.w, DESIGN.h, WORLD.w, WORLD.h);
   if (teamSwap) swapSpritesByRegion();
@@ -215,13 +199,17 @@ savePngBtn.onclick = ()=>{
   a.click();
 };
 
-// === 互動事件 ===
+// === 互動事件 (Pointer = Mouse 或 Touch) ===
 
-// mousedown：左鍵開始對應模式；點到物件才進入拖曳
-canvas.addEventListener("mousedown", (e)=>{
+function onPointerDown(e) {
   const { x, y } = screenToWorld(e);
+  const button = e.button ?? 0;
+  if (button !== 0) return;
 
-  if (e.button !== 0) return; // 只處理左鍵
+  // [新增] 重置觸控狀態
+  isDragging = false;
+  didLongPress = false;
+  if (longPressTimer) clearTimeout(longPressTimer);
 
   if (mode === "drawLine"){
     if (!lineStart){ lineStart = { x, y }; previewLine = null; }
@@ -240,7 +228,6 @@ canvas.addEventListener("mousedown", (e)=>{
     return;
   }
 
-  // 拖曳僅在點到物件時啟動
   const hit = hitTest(objects, x, y);
   if (hit){
     dragTarget = hit;
@@ -249,33 +236,54 @@ canvas.addEventListener("mousedown", (e)=>{
     dragOffset.x = x - obj.x;
     dragOffset.y = y - obj.y;
     mode = "drag";
+    
+    // [新增] 啟動長按刪除計時器
+    longPressTimer = setTimeout(() => {
+        didLongPress = true; // 標記已長按
+        longPressTimer = null;
+        
+        // 執行刪除
+        list.splice(hit.idx, 1);
+        draw();
+        
+        // 刪除後重置模式
+        mode = "idle";
+        dragTarget = null;
+    }, 500); // 500毫秒
+    
   } else {
     mode = "idle";
   }
-});
+}
 
-// mousemove：依模式即時更新
-canvas.addEventListener("mousemove", (e)=>{
+function onPointerMove(e) {
   const { x, y } = screenToWorld(e);
+
+  // [新增] 只要一移動，就代表是拖曳，不是點擊或長按
+  if (mode === "drag" || isDrawingFree) {
+    isDragging = true;
+    // 取消長按計時器
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
 
   if (mode === "eraser" && isErasing){
     const idx = nearestLineIndex(objects.lines, x, y);
     if (idx >= 0){ objects.lines.splice(idx, 1); draw(); }
     return;
   }
-
   if (mode === "drawLine" && lineStart){
     previewLine = { x1: lineStart.x, y1: lineStart.y, x2: x, y2: y, color: selectedLineColor, arrow: arrowType.value };
     draw();
     return;
   }
-
   if (mode === "freehand" && isDrawingFree){
     freePoints.push({ x, y });
     draw();
     return;
   }
-
   if (mode === "drag" && dragTarget){
     const list = pickList(dragTarget);
     const obj = list[dragTarget.idx];
@@ -284,11 +292,22 @@ canvas.addEventListener("mousemove", (e)=>{
     draw();
     return;
   }
-});
+}
 
-// mouseup：收尾各模式
-canvas.addEventListener("mouseup", (e)=>{
+function onPointerUp(e) {
   const { x, y } = screenToWorld(e);
+  
+  // [新增] 手指放開，取消長按計時器
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  
+  // [新增] 如果剛才觸發了長按刪除，則直接結束，不觸發點擊
+  if (didLongPress) {
+    didLongPress = false;
+    return;
+  }
 
   if (mode === "drawLine" && lineStart){
     objects.lines.push({ x1: lineStart.x, y1: lineStart.y, x2: x, y2: y, color: selectedLineColor, arrow: arrowType.value });
@@ -312,21 +331,61 @@ canvas.addEventListener("mouseup", (e)=>{
   }
 
   if (mode === "drag"){
+    // [新增] 檢查這是否是一次「輕點 (Tap)」
+    if (!isDragging && dragTarget && dragTarget.type === 'marker') {
+      // 這是一次輕點！觸發修改文字
+      const m = objects.markers[dragTarget.idx];
+      const t = prompt("輸入標記數字：", m.text ?? "");
+      if (t !== null){ m.text = t; draw(); }
+    }
+    
+    // 重置拖曳狀態
     mode = "idle";
     dragTarget = null;
+    isDragging = false;
     return;
   }
-});
+}
 
-// 滑出畫布時，結束拖曳／自由畫／橡皮擦預防卡住
+// --- 綁定滑鼠事件 ---
+canvas.addEventListener("mousedown", onPointerDown);
+canvas.addEventListener("mousemove", onPointerMove);
+canvas.addEventListener("mouseup", onPointerUp);
+
+// --- 綁定觸控事件 ---
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault(); 
+  if (e.touches.length > 0) {
+    onPointerDown(e.touches[0]); 
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault(); 
+  if (e.touches.length > 0) {
+    onPointerMove(e.touches[0]);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  if (e.changedTouches.length > 0) {
+    onPointerUp(e.changedTouches[0]);
+  }
+}, { passive: false });
+
+
+// 滑出畫布時
 canvas.addEventListener("mouseleave", ()=>{
   if (mode === "drag"){ mode = "idle"; dragTarget = null; }
   if (mode === "freehand"){ isDrawingFree = false; freePoints = []; }
   if (mode === "eraser"){ isErasing = false; }
+  if (longPressTimer) clearTimeout(longPressTimer); // [新增]
   previewLine = null;
+  isDragging = false;
 });
 
-// 右鍵刪除
+// [保留] 桌面版右鍵刪除
 canvas.addEventListener("contextmenu", (e)=>{
   e.preventDefault();
   const { x, y } = screenToWorld(e);
@@ -338,8 +397,9 @@ canvas.addEventListener("contextmenu", (e)=>{
   }
 });
 
-// 雙擊改標記文字
+// [保留] 桌面版雙擊改標記文字
 canvas.addEventListener("dblclick", (e)=>{
+  e.preventDefault();
   const { x, y } = screenToWorld(e);
   const hit = hitTest(objects, x, y);
   if (hit && hit.type === "marker"){
