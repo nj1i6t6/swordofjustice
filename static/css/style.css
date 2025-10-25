@@ -26,3 +26,35 @@ button.ok{border-color:#064e3b}
 .chip[data-color="#3b82f6"]{background:#3b82f6}
 .chip[data-color="#a855f7"]{background:#a855f7}
 .chip.active{outline:2px solid #fff; outline-offset:1px}
+
+
+/* [新增] RWD 響應式佈局
+  當螢幕寬度小於 800px 時 (例如手機)
+*/
+@media (max-width: 800px) {
+  .wrap {
+    /* 原佈局: grid-template-columns: 320px 1fr 
+      改為: 垂直堆疊
+    */
+    grid-template-columns: 1fr;
+    /* 讓控制面板(auto)在上方，畫布(1fr)在下方佔滿剩餘空間 */
+    grid-template-rows: auto 1fr;
+    height: 100vh; /* 仍然佔滿整個視窗高度 */
+  }
+
+  .left {
+    /* 設定一個最大高度，例如螢幕的 40%，防止面板過高 */
+    max-height: 40vh;
+    /* 原本的 overflow:auto 會處理垂直捲動
+      這裡增加 overflow-x: auto 讓面板在手機上也能橫向滑動
+    */
+    overflow-x: auto;
+    border-right: none; /* 移除右側邊框 */
+    border-bottom: 1px solid #1f2937; /* 改為底部邊框 */
+  }
+
+  .canvas-wrap {
+    /* 確保畫布容器佔滿分配給它的 grid 空間 */
+    height: 100%;
+  }
+}
