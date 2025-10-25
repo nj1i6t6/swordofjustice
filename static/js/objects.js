@@ -1,4 +1,9 @@
 // ====== objects.js ======
+import {
+  DEFAULT_STROKE_WIDTH,
+  TEXT_HITBOX_HEIGHT_RATIO,
+  TEXT_LINE_HEIGHT_RATIO,
+} from "./constants.js";
 
 export const SPRITES = {
   tower_blue: new Image(),
@@ -73,7 +78,16 @@ export function drawMarker(ctx, x, y, color, text) {
 }
 
 export function drawShape(ctx, shape) {
-  const { type, x, y, width, height, color, strokeWidth = 3, dash = [] } = shape;
+  const {
+    type,
+    x,
+    y,
+    width,
+    height,
+    color,
+    strokeWidth = DEFAULT_STROKE_WIDTH,
+    dash = [],
+  } = shape;
   if (!width || !height) return;
   ctx.save();
   ctx.strokeStyle = color;
@@ -95,17 +109,22 @@ export function drawShape(ctx, shape) {
   ctx.restore();
 }
 
+function getNoteFont(fontSize) {
+  return `600 ${fontSize}px system-ui, sans-serif`;
+}
+
 export function drawTextNote(ctx, note) {
   const { x, y, text = "", color = "#ffffff", fontSize = 18, align = "left" } = note;
   ctx.save();
   ctx.fillStyle = color;
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  const font = getNoteFont(fontSize);
+  ctx.font = font;
   ctx.textAlign = align;
   ctx.textBaseline = "top";
   const padding = 4;
   if (note.background) {
     const metrics = ctx.measureText(text);
-    const lineHeight = fontSize * 1.2;
+    const lineHeight = fontSize * TEXT_LINE_HEIGHT_RATIO;
     const w = metrics.width + padding * 2;
     const h = lineHeight + padding * 2;
     const drawX = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
@@ -122,31 +141,37 @@ export function drawTextNote(ctx, note) {
 
 // === 命中測試 ===
 // 讓塔與旗整張繪製矩形都可被拖曳／右鍵刪除
-export function hitTest(objects, x, y) {
+export function hitTest(ctx, objects, x, y) {
   const markers = objects.markers ?? [];
   const flags = objects.flags ?? [];
   const towers = objects.towers ?? [];
   const shapes = objects.shapes ?? [];
   const texts = objects.texts ?? [];
 
-  // 文字
-  for (let i = texts.length - 1; i >= 0; i--) {
-    const note = texts[i];
-    const fontSize = note.fontSize ?? 18;
-    const width = (note.text?.length ?? 0) * fontSize * 0.6;
-    const height = fontSize * 1.3;
-    let left;
-    if (note.align === "center") {
-      left = note.x - width / 2;
-    } else if (note.align === "right") {
-      left = note.x - width;
-    } else {
-      left = note.x;
+  const prevFont = ctx.font;
+  try {
+    for (let i = texts.length - 1; i >= 0; i--) {
+      const note = texts[i];
+      const fontSize = note.fontSize ?? 18;
+      const content = note.text ?? "";
+      ctx.font = getNoteFont(fontSize);
+      const width = Math.max(ctx.measureText(content).width, 1);
+      const height = fontSize * TEXT_HITBOX_HEIGHT_RATIO;
+      let left;
+      if (note.align === "center") {
+        left = note.x - width / 2;
+      } else if (note.align === "right") {
+        left = note.x - width;
+      } else {
+        left = note.x;
+      }
+      const top = note.y;
+      if (x >= left && x <= left + width && y >= top && y <= top + height) {
+        return { type: "text", idx: i };
+      }
     }
-    const top = note.y;
-    if (x >= left && x <= left + width && y >= top && y <= top + height) {
-      return { type: "text", idx: i };
-    }
+  } finally {
+    ctx.font = prevFont;
   }
 
   // 標記（修正命中偏移）
