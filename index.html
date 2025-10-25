@@ -9,11 +9,27 @@
 <body>
   <div class="wrap">
     <div class="left">
+      <div class="section section-map">
+        <h3>地圖</h3>
+        <div class="row">
+          <select id="mapSelect" aria-label="選擇地圖"></select>
+        </div>
+        <div class="row row-tight">
+          <button id="uploadMapBtn">上傳地圖</button>
+          <button id="renameMapBtn" class="secondary">重新命名</button>
+          <button id="deleteMapBtn" class="danger">刪除</button>
+        </div>
+        <p class="hint">地圖資訊會保存在瀏覽器的 localStorage</p>
+        <input type="file" id="mapUploadInput" accept="image/*" hidden>
+      </div>
+
       <div class="section">
         <h3>物件：塔 / 旗</h3>
         <div class="row">
           <button id="addBlueTower">新增藍塔</button>
           <button id="addRedTower">新增紅塔</button>
+        </div>
+        <div class="row">
           <button id="addBlueFlag">新增藍旗</button>
           <button id="addRedFlag">新增紅旗</button>
         </div>
@@ -22,7 +38,8 @@
 
       <div class="section">
         <h3>標記</h3>
-        <div class="row">
+        <div class="row palette-row">
+          <span class="label">顏色</span>
           <div class="palette palette-marker" id="markerPalette">
             <button class="chip" data-color="#ef4444" title="紅"></button>
             <button class="chip" data-color="#f97316" title="橙"></button>
@@ -31,14 +48,17 @@
             <button class="chip" data-color="#3b82f6" title="藍"></button>
             <button class="chip" data-color="#a855f7" title="紫"></button>
           </div>
+        </div>
+        <div class="row">
           <button id="addMarker">新增標記</button>
         </div>
-        <p class="hint">雙擊更改文字；右鍵刪除</p>
+        <p class="hint">雙擊標記可更改文字</p>
       </div>
 
       <div class="section">
-        <h3>畫線</h3>
-        <div class="row">
+        <h3>繪圖工具</h3>
+        <div class="row palette-row">
+          <span class="label">線條顏色</span>
           <div class="palette palette-line" id="linePalette">
             <button class="chip" data-color="#ef4444" title="紅"></button>
             <button class="chip" data-color="#f97316" title="橙"></button>
@@ -47,44 +67,89 @@
             <button class="chip" data-color="#3b82f6" title="藍"></button>
             <button class="chip" data-color="#a855f7" title="紫"></button>
           </div>
-          <label>箭頭</label>
+        </div>
+        <div class="row controls-row">
+          <label for="lineStyle">樣式</label>
+          <select id="lineStyle">
+            <option value="solid">實線</option>
+            <option value="dashed">虛線</option>
+          </select>
+          <label for="lineWidth">粗細</label>
+          <input type="range" id="lineWidth" min="1" max="16" value="3">
+          <span id="lineWidthValue">3px</span>
+          <label for="arrowType">箭頭</label>
           <select id="arrowType">
-            <option value="none">直線</option>
-            <option value="left">左箭頭</option>
-            <option value="both">雙向箭頭</option>
+            <option value="none">無箭頭</option>
+            <option value="right">末端箭頭</option>
+            <option value="left">起點箭頭</option>
+            <option value="both">雙箭頭</option>
           </select>
         </div>
-        <div class="row">
-          <button id="drawLineBtn">畫線模式</button>
-          <button id="freehandBtn">自由畫模式</button>
+        <div class="row tool-buttons">
+          <button id="drawLineBtn">直線</button>
+          <button id="freehandBtn">自由畫</button>
+          <button id="drawCircleBtn">圓形</button>
+          <button id="drawRectBtn">矩形</button>
+          <button id="textToolBtn">文字工具</button>
+          <button id="eraserBtn">橡皮擦</button>
         </div>
-        <p class="hint">畫線：按住滑鼠拖動。自由畫：按住滑鼠隨便畫。</p>
+        <div class="row palette-row">
+          <span class="label">文字顏色</span>
+          <div class="palette palette-text" id="textPalette">
+            <button class="chip active" data-color="#ffffff" title="白"></button>
+            <button class="chip" data-color="#0f172a" title="深藍"></button>
+            <button class="chip" data-color="#fbbf24" title="黃"></button>
+            <button class="chip" data-color="#38bdf8" title="天藍"></button>
+            <button class="chip" data-color="#f87171" title="粉紅"></button>
+          </div>
+        </div>
+        <p class="hint">按住空白鍵或滑鼠中鍵拖曳可平移；滾輪縮放。</p>
       </div>
 
       <div class="section">
         <h3>佈盤</h3>
         <div class="row">
-          <button id="swapColorBtn" class="ok">佈盤</button>
+          <button id="swapColorBtn" class="secondary">塔旗佈盤切換</button>
         </div>
-        <p class="hint">點擊後排列塔旗；再次點擊兩邊顏色互換</p>
+        <p class="hint">依左右陣營自動調整顏色</p>
       </div>
 
       <div class="section">
-        <h3>橡皮擦 / 復原</h3>
-        <div class="row">
-          <button id="eraserBtn">橡皮擦（刪線）</button>
-          <button id="resetBtn" class="danger">復原</button>
-          <button id="savePng" class="ok">存成 PNG</button>
+        <h3>快速操作</h3>
+        <div class="row row-tight">
+          <button id="undoBtn">復原 (Ctrl+Z)</button>
+          <button id="redoBtn">重做</button>
+          <button id="savePng">匯出 PNG</button>
+          <button id="resetBtn" class="danger">全部重置</button>
         </div>
+      </div>
+
+      <div class="section">
+        <h3>戰術存檔</h3>
+        <div class="row">
+          <button id="saveJson">下載 JSON</button>
+          <button id="loadJson" class="secondary">載入 JSON</button>
+        </div>
+        <div class="row slot-row">
+          <select id="saveSlotSelect" aria-label="本機存檔"></select>
+        </div>
+        <div class="row row-tight">
+          <button id="saveSlotSave">覆蓋存檔</button>
+          <button id="saveSlotLoad" class="secondary">讀取</button>
+          <button id="saveSlotRename" class="secondary">重新命名</button>
+          <button id="saveSlotDelete" class="danger">清除</button>
+        </div>
+        <p class="hint">存檔同樣儲存在此裝置的瀏覽器</p>
+        <input type="file" id="loadJsonInput" accept="application/json" hidden>
       </div>
     </div>
 
     <div class="canvas-wrap">
       <canvas id="board" width="1047" height="597"></canvas>
-      <div id="hint">右鍵刪除物件 · 雙擊標記可改數字</div>
+      <div id="hint">空白鍵拖曳平移 · 滾輪縮放 · Ctrl+Z / Ctrl+Y 復原重做</div>
     </div>
   </div>
 
   <script type="module" src="static/js/board.js"></script>
-  </body>
+</body>
 </html>
