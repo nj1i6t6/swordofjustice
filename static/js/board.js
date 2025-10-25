@@ -1069,31 +1069,22 @@ canvas.addEventListener(
 canvas.addEventListener(
   "touchend",
   (e) => {
-    e.preventDefault();
-    if (isMultiTouchPanning) {
-      if (e.touches.length >= 2) {
-        const center = getTouchCenter(e.touches);
-        if (center) updatePanFromPointer(center);
-      } else {
-        stopPan();
-      }
-      return;
-    }
-    if (e.changedTouches.length > 0) onPointerUp(e.changedTouches[0]);
-  },
-  { passive: false }
+    // ... (multi-touch logic)
+    return;
+  }
+  handleSingleTouchUp(e); // 或 handleSingleTouchEnd(e)
+},
+{ passive: false }
 );
 canvas.addEventListener(
   "touchcancel",
   (e) => {
-    e.preventDefault();
-    if (isMultiTouchPanning) {
-      stopPan();
-      return;
-    }
-    if (e.changedTouches.length > 0) onPointerUp(e.changedTouches[0]);
-  },
-  { passive: false }
+    // ... (multi-touch logic)
+    return;
+  }
+  handleSingleTouchUp(e); // 或 handleSingleTouchEnd(e)
+},
+{ passive: false }
 );
 
 canvas.addEventListener("contextmenu", (e) => {
