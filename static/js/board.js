@@ -512,7 +512,7 @@ function scheduleLongPress(list, index) {
 }
 
 function scaleObjects(obj, fw, fh, tw, th) {
-  if (!fw || !fh) return;
+  if (!fw || !fh || !tw || !th) return;
   const scale = Math.min(tw / fw, th / fh);
   if (!Number.isFinite(scale) || scale <= 0) return;
   const offsetX = (tw - fw * scale) / 2;
@@ -1020,6 +1020,13 @@ function onMouseLeave() {
   updateCursor();
 }
 
+// *** 修正：加入 handleSingleTouchUp ***
+function handleSingleTouchUp(e) {
+  if (e.changedTouches.length > 0) {
+    onPointerUp(e.changedTouches[0]);
+  }
+}
+
 canvas.addEventListener("mousedown", onPointerDown);
 canvas.addEventListener("mousemove", onPointerMove);
 canvas.addEventListener("mouseup", onPointerUp);
@@ -1066,25 +1073,38 @@ canvas.addEventListener(
   },
   { passive: false }
 );
+
+// *** 修正：更新 touchend ***
 canvas.addEventListener(
   "touchend",
   (e) => {
-    // ... (multi-touch logic)
-    return;
-  }
-  handleSingleTouchUp(e); // 或 handleSingleTouchEnd(e)
-},
-{ passive: false }
+    e.preventDefault();
+    if (isMultiTouchPanning) {
+      if (e.touches.length >= 2) {
+        const center = getTouchCenter(e.touches);
+        if (center) updatePanFromPointer(center);
+      } else {
+        stopPan();
+      }
+      return;
+    }
+    handleSingleTouchUp(e);
+  },
+  { passive: false }
 );
+
+// *** 修正：更新 touchcancel ***
 canvas.addEventListener(
   "touchcancel",
   (e) => {
-    // ... (multi-touch logic)
-    return;
-  }
-  handleSingleTouchUp(e); // 或 handleSingleTouchEnd(e)
-},
-{ passive: false }
+    e.preventDefault();
+    if (isMultiTouchPanning) {
+      stopPan();
+      return;
+    }
+    handleSingleTouchUp(e);
+  },
+  { passive: false }
 );
 
 canvas.addEventListener("contextmenu", (e) => {
@@ -1323,11 +1343,15 @@ function saveMaps() {
   localStorage.setItem(MAPS_KEY, JSON.stringify(userMaps));
 }
 
+// *** 修正：強化 generateMapId ***
 function generateMapId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `map-${crypto.randomUUID()}`;
   }
-  const random = Math.random().toString(36).slice(2, 8);
+  let random = "";
+  for (let i = 0; i < 4; i++) {
+    random += Math.random().toString(36).slice(2, 6);
+  }
   return `map-${Date.now().toString(36)}-${random}`;
 }
 
