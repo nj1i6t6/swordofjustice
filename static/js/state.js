@@ -2,7 +2,7 @@
 // 這裡預設 A區=藍、B區=紅；之後在 board.js 可一鍵切換
 
 export function blankState() {
-  return { towers: [], flags: [], markers: [], lines: [] };
+  return { towers: [], flags: [], markers: [], lines: [], shapes: [], texts: [] };
 }
 
 export function defaultDeploy(width, height) {

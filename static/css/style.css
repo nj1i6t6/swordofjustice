@@ -1,60 +1,266 @@
-:root { --bg:#0f172a; --panel:#111827; --muted:#334155; --accent:#22d3ee; }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#e5e7eb;font-family:ui-sans-serif,system-ui,Roboto,"Helvetica Neue";}
-.wrap{display:grid;grid-template-columns:320px 1fr;height:100vh}
-.left{background:var(--panel);padding:14px;overflow:auto;border-right:1px solid #1f2937}
-.section{margin-bottom:16px;padding:12px;border:1px solid #1f2937;border-radius:12px;background:#0b1220}
-.section h3{margin:0 0 10px 0;font-size:14px;color:#cbd5e1}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-button,select{background:#0f172a;color:#e5e7eb;border:1px solid #1f2937;border-radius:10px;padding:8px 10px;cursor:pointer}
-button:hover{border-color:#334155}
-button.active{outline:2px solid var(--accent)}
-button.danger{border-color:#7f1d1d}
-button.ok{border-color:#064e3b}
-.hint{margin:8px 0 0;color:#a3b2c4;font-size:12px}
-.canvas-wrap{position:relative;background:#000}
-#board{display:block;width:100%;height:100%}
-#hint{position:absolute;left:12px;bottom:10px;color:#cbd5e1;font-size:12px;background:#0b1220aa;padding:6px 8px;border-radius:8px}
+:root {
+  --bg: #0b1120;
+  --panel: #0f172a;
+  --panel-border: #1f2937;
+  --panel-light: #111c33;
+  --accent: #38bdf8;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
 
-/* 色票 */
-.palette{display:flex;gap:8px}
-.chip{width:22px;height:22px;border-radius:6px;border:2px solid #1f2937;padding:0}
-.chip[data-color="#ef4444"]{background:#ef4444}
-.chip[data-color="#f97316"]{background:#f97316}
-.chip[data-color="#fbbf24"]{background:#fbbf24}
-.chip[data-color="#22c55e"]{background:#22c55e}
-.chip[data-color="#3b82f6"]{background:#3b82f6}
-.chip[data-color="#a855f7"]{background:#a855f7}
-.chip.active{outline:2px solid #fff; outline-offset:1px}
+* {
+  box-sizing: border-box;
+}
 
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, rgba(56,189,248,0.06), transparent 55%), var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans TC", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+}
 
-/* [新增] RWD 響應式佈局
-  當螢幕寬度小於 800px 時 (例如手機)
-*/
-@media (max-width: 800px) {
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.left {
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  padding: 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section {
+  background: linear-gradient(160deg, var(--panel-light), rgba(15,23,42,0.7));
+  border: 1px solid rgba(148,163,184,0.08);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+}
+
+.section h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+button,
+select,
+input[type="number"] {
+  background: rgba(15,23,42,0.78);
+  color: var(--text);
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 13px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+button:hover,
+select:focus,
+input[type="number"]:focus {
+  border-color: rgba(148,163,184,0.4);
+  outline: none;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button.danger {
+  border-color: rgba(239,68,68,0.4);
+  color: #fecaca;
+}
+
+button.ok {
+  border-color: rgba(34,197,94,0.45);
+  color: #bbf7d0;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+input[type="range"] {
+  width: 140px;
+  accent-color: var(--accent);
+}
+
+input[type="number"] {
+  width: 72px;
+  text-align: center;
+}
+
+select {
+  min-width: 110px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(226,232,240,0.7);
+  line-height: 1.5;
+}
+
+.palette {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid rgba(15,23,42,0.8);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.chip:hover {
+  transform: scale(1.05);
+}
+
+.chip.active {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.chip[data-color="#ef4444"] { background: #ef4444; }
+.chip[data-color="#f97316"] { background: #f97316; }
+.chip[data-color="#fbbf24"] { background: #fbbf24; }
+.chip[data-color="#22c55e"] { background: #22c55e; }
+.chip[data-color="#3b82f6"] { background: #3b82f6; }
+.chip[data-color="#a855f7"] { background: #a855f7; }
+.chip[data-color="#ffffff"] { background: #ffffff; }
+.chip[data-color="#e11d48"] { background: #e11d48; }
+.chip[data-color="#38bdf8"] { background: #38bdf8; }
+.chip[data-color="#34d399"] { background: #34d399; }
+
+#lineWidthValue {
+  font-size: 12px;
+  color: rgba(226,232,240,0.8);
+  min-width: 42px;
+}
+
+.canvas-wrap {
+  position: relative;
+  background: radial-gradient(circle at center, rgba(30,64,175,0.18), rgba(2,6,23,0.92));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+#board {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  background: #000;
+  box-shadow: 0 16px 40px rgba(15,23,42,0.6);
+}
+
+.canvas-overlay {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+#zoomLevel,
+#hint {
+  background: rgba(15,23,42,0.78);
+  border: 1px solid rgba(148,163,184,0.18);
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+#zoomLevel {
+  min-width: 64px;
+  text-align: center;
+}
+
+@media (max-width: 1120px) {
   .wrap {
-    /* 原佈局: grid-template-columns: 320px 1fr 
-      改為: 垂直堆疊
-    */
+    grid-template-columns: minmax(250px, 320px) 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .wrap {
     grid-template-columns: 1fr;
-    /* 讓控制面板(auto)在上方，畫布(1fr)在下方佔滿剩餘空間 */
     grid-template-rows: auto 1fr;
-    height: 100vh; /* 仍然佔滿整個視窗高度 */
+    height: 100vh;
   }
 
   .left {
-    /* 設定一個最大高度，例如螢幕的 40%，防止面板過高 */
-    max-height: 40vh;
-    /* 原本的 overflow:auto 會處理垂直捲動
-      這裡增加 overflow-x: auto 讓面板在手機上也能橫向滑動
-    */
-    overflow-x: auto;
-    border-right: none; /* 移除右側邊框 */
-    border-bottom: 1px solid #1f2937; /* 改為底部邊框 */
+    max-height: 48vh;
+    border-right: none;
+    border-bottom: 1px solid var(--panel-border);
   }
 
   .canvas-wrap {
-    /* 確保畫布容器佔滿分配給它的 grid 空間 */
     height: 100%;
+  }
+
+  .canvas-overlay {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 580px) {
+  .section {
+    padding: 14px;
+  }
+
+  button,
+  select,
+  input[type="number"] {
+    flex: 1 1 auto;
+  }
+
+  input[type="range"] {
+    width: 100px;
   }
 }
