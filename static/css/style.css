@@ -37,6 +37,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100vh; /* <-- 新增這一行來修正捲動問題 */
 }
 
 .section {
@@ -232,6 +233,7 @@ select {
 
   .left {
     max-height: 48vh;
+    height: auto; /* 在手機版恢復 auto */
     border-right: none;
     border-bottom: 1px solid var(--panel-border);
   }
