@@ -31,7 +31,7 @@
           <button id="addBlueFlag">新增藍旗</button>
           <button id="addRedFlag">新增紅旗</button>
         </div>
-        <p class="hint">拖曳移動 · 右鍵刪除</p>
+        <p class="hint">拖曳移動 · 拖曳至垃圾桶刪除</p>
       </div>
 
       <div class="section">
@@ -59,7 +59,7 @@
           <input id="textSize" type="number" min="12" max="48" value="18">
           <button id="textToolBtn">文字工具</button>
         </div>
-        <p class="hint">點擊加入純文字 · 雙擊編輯 · 右鍵刪除</p>
+        <p class="hint">點擊加入純文字 · 雙擊編輯 · 拖曳至垃圾桶刪除</p>
       </div>
 
       <div class="section">
@@ -121,7 +121,7 @@
         <div class="row">
           <button id="resetViewBtn">重設視角</button>
         </div>
-        <p class="hint">滑鼠滾輪縮放 · 按住空白鍵拖曳可平移視角。</p>
+        <p class="hint">滑鼠滾輪縮放 · 按住空白鍵或在空白處拖曳可平移視角。</p>
       </div>
 
       <div class="section">
@@ -145,9 +145,14 @@
 
     <div class="canvas-wrap">
       <canvas id="board" width="1047" height="597"></canvas>
+      
+      <div id="deleteZone">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+        <span>拖曳至此刪除</span>
+      </div>
       <div class="canvas-overlay">
         <div id="zoomLevel">100%</div>
-        <div id="hint">右鍵刪除物件 · 雙擊可編輯標記/文字</div>
+        <div id="hint">拖曳物件至垃圾桶刪除 · 雙擊可編輯標記/文字</div>
       </div>
     </div>
   </div>
