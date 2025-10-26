@@ -1,3 +1,5 @@
+// --- START OF FILE objects.js ---
+
 // ====== objects.js ======
 import {
   DEFAULT_STROKE_WIDTH,
@@ -15,9 +17,11 @@ export const BG = new Image();
 export const DEFAULT_BG_SRC = "static/img/map_clean.jpg";
 
 // === 尺寸設定 ===
+// <-- MODIFIED: 確保 SETTINGS 被匯出，並新增 markerRadius
 export const SETTINGS = {
   towerSize: 40,
   flagSize:  40,
+  markerRadius: 14, // <-- 新增
   offset: {
     towerX: 15,
     towerY: 0,
@@ -26,6 +30,7 @@ export const SETTINGS = {
   },
 };
 
+// <-- MODIFIED: 確保 applySettings 被匯出
 export function applySettings(partial) {
   if (!partial) return;
   Object.assign(SETTINGS, partial);
@@ -33,9 +38,6 @@ export function applySettings(partial) {
 }
 
 // === 載入圖片 ===
-// [修正]
-// 瀏覽器是從 index.html 的位置來解析 .src 路徑
-// 因此路徑必須是 'static/img/...'
 export function loadImages() {
   SPRITES.tower_blue.src = "static/img/tower_blue.png";
   SPRITES.tower_red.src  = "static/img/tower_red.png";
@@ -58,8 +60,9 @@ export function drawFlag(ctx, x, y, spriteKey) {
   ctx.drawImage(img, x - w / 2 + ox, y - h / 2 + oy, w, h);
 }
 
+// <-- MODIFIED: 修改 drawMarker 以使用動態尺寸
 export function drawMarker(ctx, x, y, color, text) {
-  const r = 14; // 🔹 標記半徑（原本是20，改小）
+  const r = SETTINGS.markerRadius; // <-- 使用 SETTINGS
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = "#0b1220";
@@ -70,7 +73,8 @@ export function drawMarker(ctx, x, y, color, text) {
   ctx.stroke();
 
   ctx.fillStyle = "#0b1220";
-  ctx.font = "bold 12px system-ui, sans-serif"; // 🔹 字體跟著縮小
+  // 字體大小也跟著半徑動態調整
+  ctx.font = `bold ${Math.max(8, r * 0.85)}px system-ui, sans-serif`; 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text ?? "", x, y);
@@ -140,7 +144,6 @@ export function drawTextNote(ctx, note) {
 
 
 // === 命中測試 ===
-// 讓塔與旗整張繪製矩形都可被拖曳／右鍵刪除
 export function hitTest(ctx, objects, x, y) {
   const markers = objects.markers ?? [];
   const flags = objects.flags ?? [];
@@ -174,22 +177,20 @@ export function hitTest(ctx, objects, x, y) {
     ctx.font = prevFont;
   }
 
-  // 標記（修正命中偏移）
+  // <-- MODIFIED: 修改標記的命中測試，以使用動態尺寸
   for (let i = markers.length - 1; i >= 0; i--) {
     const m = markers[i];
-    const r = 18; // 命中半徑，可調整（建議略大於繪製半徑）
+    // 命中半徑稍大於繪製半徑，體驗更好
+    const r = SETTINGS.markerRadius * 1.2; // <-- 使用 SETTINGS
 
-    // 🔹 若畫面上實際命中點偏上，可將 hitbox 向下平移幾個像素
-    const offsetY = 5; // ↓ 正值代表向下修正命中區域
+    const offsetY = 5 * (SETTINGS.markerRadius / 14); // 也讓偏移量跟著縮放
     const dx = m.x - x;
-    const dy = (m.y + offsetY) - y; // 加上 offset 修正整個 hit 區域
+    const dy = (m.y + offsetY) - y;
     
     if (dx * dx + dy * dy <= r * r) {
       return { type: "marker", idx: i };
     }
   }
-
-
 
   // 形狀
   for (let i = shapes.length - 1; i >= 0; i--) {
@@ -217,10 +218,10 @@ export function hitTest(ctx, objects, x, y) {
   // 旗
   for (let i = flags.length - 1; i >= 0; i--) {
     const f = flags[i];
-    const w = SETTINGS.flagSize;  // 寬度
-    const h = SETTINGS.flagSize * 1.1;  // 高度（旗子的高度小於寬度）
+    const w = SETTINGS.flagSize;
+    const h = SETTINGS.flagSize * 1.1;
     const ox = SETTINGS.offset.flagX;
-    const oy = SETTINGS.offset.flagY +SETTINGS.flagSize * 0.3;
+    const oy = SETTINGS.offset.flagY + SETTINGS.flagSize * 0.3;
     const left = f.x - w / 2 + ox;
     const top = f.y - h / 2 + oy;
     if (x >= left && x <= left + w && y >= top && y <= top + h) {
@@ -228,15 +229,13 @@ export function hitTest(ctx, objects, x, y) {
     }
   }
 
-
-
-// 塔
+  // 塔
   for (let i = towers.length - 1; i >= 0; i--) {
     const t = towers[i];
-    const w = SETTINGS.towerSize * 0.9;   // 寬略小一點
-    const h = SETTINGS.towerSize * 1.1;   // 高度與實際塔身相符
+    const w = SETTINGS.towerSize * 0.9;
+    const h = SETTINGS.towerSize * 1.1;
     const ox = SETTINGS.offset.towerX;
-    const oy = SETTINGS.offset.towerY + SETTINGS.towerSize * 0.3; // 下移 hitbox 位置
+    const oy = SETTINGS.offset.towerY + SETTINGS.towerSize * 0.3;
     const left = t.x - w / 2 + ox;
     const top = t.y - h / 2 + oy;
     if (x >= left && x <= left + w && y >= top && y <= top + h) {
@@ -244,6 +243,7 @@ export function hitTest(ctx, objects, x, y) {
     }
   }
 
-
   return null;
 }
+
+// --- END OF FILE objects.js ---
