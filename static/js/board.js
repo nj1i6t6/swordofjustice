@@ -24,50 +24,59 @@ const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
 // === UI Elements ===
-// (DOM 參照都沒變)
 const mapSelect = document.getElementById("mapSelect");
 const uploadMapBtn = document.getElementById("uploadMapBtn");
 const deleteMapBtn = document.getElementById("deleteMapBtn");
 const mapFileInput = document.getElementById("mapFile");
+
 const addBlueTower = document.getElementById("addBlueTower");
 const addRedTower = document.getElementById("addRedTower");
 const addBlueFlag = document.getElementById("addBlueFlag");
 const addRedFlag = document.getElementById("addRedFlag");
 const addMarkerBtn = document.getElementById("addMarker");
+
 const markerPalette = document.getElementById("markerPalette");
 const linePalette = document.getElementById("linePalette");
 const textPalette = document.getElementById("textPalette");
+
 const lineDashSelect = document.getElementById("lineDash");
 const lineWidthInput = document.getElementById("lineWidth");
 const lineWidthValue = document.getElementById("lineWidthValue");
 const arrowType = document.getElementById("arrowType");
 const textSizeInput = document.getElementById("textSize");
+
 const drawLineBtn = document.getElementById("drawLineBtn");
 const freehandBtn = document.getElementById("freehandBtn");
 const circleToolBtn = document.getElementById("circleToolBtn");
 const rectToolBtn = document.getElementById("rectToolBtn");
 const eraserBtn = document.getElementById("eraserBtn");
 const textToolBtn = document.getElementById("textToolBtn");
+
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 const clearBoardBtn = document.getElementById("clearBoardBtn");
 const swapColorBtn = document.getElementById("swapColorBtn");
 const resetViewBtn = document.getElementById("resetViewBtn");
+const resetAllBtn = document.getElementById("resetAllBtn"); // <-- **** 新增按鈕參照 ****
+
 const saveJsonBtn = document.getElementById("saveJsonBtn");
 const loadJsonBtn = document.getElementById("loadJsonBtn");
 const jsonFileInput = document.getElementById("jsonFile");
 const savePngBtn = document.getElementById("savePng");
+
 const slotSelect = document.getElementById("slotSelect");
 const saveSlotBtn = document.getElementById("saveSlotBtn");
 const loadSlotBtn = document.getElementById("loadSlotBtn");
 const renameSlotBtn = document.getElementById("renameSlotBtn");
 const deleteSlotBtn = document.getElementById("deleteSlotBtn");
+
 const zoomLevel = document.getElementById("zoomLevel");
+
 const deleteZone = document.getElementById("deleteZone");
 const hintElement = document.getElementById("hint");
 
+
 // === Palettes ===
-// (這區塊沒變)
 let selectedMarkerColor = "#fbbf24";
 let selectedLineColor = "#22c55e";
 let selectedTextColor = "#ffffff";
@@ -100,24 +109,20 @@ bindPalette(markerPalette, (c) => (selectedMarkerColor = c), selectedMarkerColor
 bindPalette(linePalette, (c) => (selectedLineColor = c), selectedLineColor);
 bindPalette(textPalette, (c) => (selectedTextColor = c), selectedTextColor);
 
-// (clampNumber, lineDashSelect, updateLineWidthDisplay, getTextSize... 這幾個函式都沒變)
 function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
   return Math.min(max, Math.max(min, num));
 }
-
 if (lineDashSelect) {
   lineDashSelect.addEventListener("change", () => {
     selectedLineDash = (dashMap[lineDashSelect.value] ?? []).slice();
     draw();
   });
 }
-
 function updateLineWidthDisplay() {
   if (lineWidthValue) lineWidthValue.textContent = `${selectedLineWidth}px`;
 }
-
 if (lineWidthInput) {
   updateLineWidthDisplay();
   lineWidthInput.addEventListener("input", () => {
@@ -131,14 +136,12 @@ if (lineWidthInput) {
     draw();
   });
 }
-
 function getTextSize() {
   if (!textSizeInput) return 18;
   const value = clampNumber(textSizeInput.value, 12, 60, 18);
   textSizeInput.value = value;
   return value;
 }
-
 if (textSizeInput) {
   textSizeInput.addEventListener("input", () => {
     textSizeInput.value = getTextSize();
@@ -147,7 +150,6 @@ if (textSizeInput) {
 }
 
 // === World/View ===
-// (這區塊沒變)
 const DESIGN = { w: 1280, h: 720 };
 let WORLD = { w: 1280, h: 720 };
 const VIEW = { baseScale: 1, zoom: 1, offsetX: 0, offsetY: 0, minZoom: 0.4, maxZoom: 3 };
@@ -178,7 +180,6 @@ let initialPinchDist = null;
 let initialZoom = 1; 
 
 // History
-// (這區塊沒變)
 const HISTORY_LIMIT = 80;
 let history = [];
 let redoStack = [];
@@ -190,25 +191,21 @@ function snapshotState() {
     world: { w: WORLD.w, h: WORLD.h },
   };
 }
-
 function resetHistory() {
   history = [snapshotState()];
   redoStack = [];
   updateHistoryButtons();
 }
-
 function commitChange() {
   history.push(snapshotState());
   if (history.length > HISTORY_LIMIT) history.shift();
   redoStack = [];
   updateHistoryButtons();
 }
-
 function updateHistoryButtons() {
   if (undoBtn) undoBtn.disabled = history.length <= 1;
   if (redoBtn) redoBtn.disabled = redoStack.length === 0;
 }
-
 function loadFromSnapshot(snapshot, { reset = false } = {}) {
   if (!snapshot || !snapshot.objects) return false;
   const clone = JSON.parse(JSON.stringify(snapshot.objects));
@@ -230,17 +227,14 @@ function loadFromSnapshot(snapshot, { reset = false } = {}) {
   return true;
 }
 
-// (getScale, updateZoomIndicator, clampAxis, clampView, centerViewOn, getViewCenterWorld, resetView... 這整區都沒變)
 function getScale() {
   return VIEW.baseScale * VIEW.zoom;
 }
-
 function updateZoomIndicator() {
   if (zoomLevel) {
     zoomLevel.textContent = `${Math.round(VIEW.zoom * 100)}%`;
   }
 }
-
 function clampAxis(containerSize, contentSize, offset) {
   if (contentSize <= containerSize) {
     return (containerSize - contentSize) / 2;
@@ -249,7 +243,6 @@ function clampAxis(containerSize, contentSize, offset) {
   const max = 0;
   return Math.min(max, Math.max(min, offset));
 }
-
 function clampView() {
   const scale = getScale();
   const contentW = WORLD.w * scale;
@@ -257,14 +250,12 @@ function clampView() {
   VIEW.offsetX = clampAxis(canvas.width, contentW, VIEW.offsetX);
   VIEW.offsetY = clampAxis(canvas.height, contentH, VIEW.offsetY);
 }
-
 function centerViewOn(x, y) {
   const scale = getScale();
   VIEW.offsetX = canvas.width / 2 - x * scale;
   VIEW.offsetY = canvas.height / 2 - y * scale;
   clampView();
 }
-
 function getViewCenterWorld() {
   const scale = getScale();
   if (!scale) return null;
@@ -272,7 +263,6 @@ function getViewCenterWorld() {
   const y = (canvas.height / 2 - VIEW.offsetY) / scale;
   return { x, y };
 }
-
 function resetView(redraw = true) {
   VIEW.zoom = 1;
   centerViewOn(WORLD.w / 2, WORLD.h / 2);
@@ -289,11 +279,9 @@ function getCanvasPointFromClient({ clientX, clientY }) {
     y: (clientY - rect.top) * scaleY,
   };
 }
-
 function getCanvasPoint(e) {
   return getCanvasPointFromClient(e);
 }
-
 function screenToWorld(e) {
   const { x, y } = getCanvasPoint(e);
   const scale = getScale();
@@ -302,7 +290,6 @@ function screenToWorld(e) {
     y: (y - VIEW.offsetY) / scale,
   };
 }
-
 function getPinchDist(touches) {
   if (touches.length < 2) return 0;
   const t1 = touches[0];
@@ -311,7 +298,6 @@ function getPinchDist(touches) {
   const dy = t1.clientY - t2.clientY;
   return Math.sqrt(dx * dx + dy * dy);
 }
-
 function getTouchCenter(touches) {
   if (!touches || touches.length === 0) return null;
   let sumX = 0;
@@ -326,7 +312,6 @@ function getTouchCenter(touches) {
     clientY: sumY / touches.length,
   };
 }
-
 function isPointerOverDeleteZone(e) {
   if (!deleteZone) return false;
   const clientX = e.clientX;
@@ -346,24 +331,19 @@ function beginWorld() {
   const scale = getScale();
   ctx.setTransform(scale, 0, 0, scale, VIEW.offsetX, VIEW.offsetY);
 }
-
 function endWorld() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-// (draw 函式沒變)
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   beginWorld();
-
   if (BG.complete) {
     ctx.drawImage(BG, 0, 0, WORLD.w, WORLD.h);
   }
-
   for (const shape of objects.shapes ?? []) {
     drawShape(ctx, shape);
   }
-
   for (const line of objects.lines ?? []) {
     if (line.kind === "free") {
       drawPolyline(
@@ -387,14 +367,12 @@ function draw() {
       );
     }
   }
-
   if (previewShape) {
     ctx.save();
     ctx.globalAlpha = 0.85;
     drawShape(ctx, previewShape);
     ctx.restore();
   }
-
   if (previewLine) {
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -411,14 +389,12 @@ function draw() {
     );
     ctx.restore();
   }
-
   if (isDrawingFree && freePoints.length > 1) {
     ctx.save();
     ctx.globalAlpha = 0.85;
     drawPolyline(ctx, freePoints, selectedLineColor, selectedLineWidth, selectedLineDash);
     ctx.restore();
   }
-
   for (const tower of objects.towers ?? []) {
     drawTower(ctx, tower.x, tower.y, tower.sprite);
   }
@@ -431,12 +407,10 @@ function draw() {
   for (const note of objects.texts ?? []) {
     drawTextNote(ctx, note);
   }
-
   endWorld();
   updateZoomIndicator();
 }
 
-// (MODE_BUTTONS, updateCursor, setMode 函式都沒變)
 const MODE_BUTTONS = new Map([
   ["drawLine", drawLineBtn],
   ["freehand", freehandBtn],
@@ -445,7 +419,6 @@ const MODE_BUTTONS = new Map([
   ["eraser", eraserBtn],
   ["text", textToolBtn],
 ]);
-
 function updateCursor() {
   if (isPanning) {
     canvas.style.cursor = "grabbing";
@@ -461,7 +434,6 @@ function updateCursor() {
     canvas.style.cursor = "default";
   }
 }
-
 function setMode(newMode) {
   const target = mode === newMode ? "idle" : newMode;
   mode = target;
@@ -488,13 +460,11 @@ function setMode(newMode) {
   updateCursor();
 }
 
-
 function startPanFromPointer(pointer) {
   isPanning = true;
   panLast = getCanvasPointFromClient(pointer);
   updateCursor();
 }
-
 function updatePanFromPointer(pointer) {
   if (!isPanning) return;
   const current = getCanvasPointFromClient(pointer);
@@ -504,12 +474,10 @@ function updatePanFromPointer(pointer) {
   clampView();
   draw();
 }
-
 function startPan(e) {
   isMultiTouchPanning = false;
   startPanFromPointer(e);
 }
-
 function stopPan() {
   if (!isPanning) return;
   isPanning = false;
@@ -518,20 +486,17 @@ function stopPan() {
   updateCursor();
 }
 
-// (scaleObjects, swapSpritesByRegion, fitCanvas, pickList... 這區塊函式都沒變)
 function scaleObjects(obj, fw, fh, tw, th) {
   if (!fw || !fh || !tw || !th) return;
   const scale = Math.min(tw / fw, th / fh);
   if (!Number.isFinite(scale) || scale <= 0) return;
   const offsetX = (tw - fw * scale) / 2;
   const offsetY = (th - fh * scale) / 2;
-
   const applyPoint = (point) => {
     if (!point) return;
     point.x = point.x * scale + offsetX;
     point.y = point.y * scale + offsetY;
   };
-
   for (const tower of obj.towers ?? []) {
     applyPoint(tower);
   }
@@ -565,7 +530,6 @@ function scaleObjects(obj, fw, fh, tw, th) {
     text.fontSize = (text.fontSize ?? 18) * scale;
   }
 }
-
 function swapSpritesByRegion() {
   const mid = WORLD.w / 2;
   for (const t of objects.towers ?? []) {
@@ -579,7 +543,6 @@ function swapSpritesByRegion() {
     f.sprite = color === "blue" ? "flag_blue" : "flag_red";
   }
 }
-
 function fitCanvas(redraw = true) {
   const rect = canvas.parentElement?.getBoundingClientRect();
   if (!rect) return;
@@ -596,7 +559,6 @@ function fitCanvas(redraw = true) {
   }
   if (redraw) draw();
 }
-
 function pickList(hit) {
   if (!hit) return null;
   if (hit.type === "tower") return objects.towers;
@@ -607,7 +569,6 @@ function pickList(hit) {
   return null;
 }
 
-// (addTower, addFlag, addMarker, createTextAt, promptMarkerText, undo, redo, handlePanKey, onWheel... 這區塊函式都沒變)
 function addTower(sprite) {
   const center = getViewCenterWorld();
   const position = center ?? {
@@ -618,7 +579,6 @@ function addTower(sprite) {
   draw();
   commitChange();
 }
-
 function addFlag(sprite) {
   const center = getViewCenterWorld();
   const position = center ?? {
@@ -629,7 +589,6 @@ function addFlag(sprite) {
   draw();
   commitChange();
 }
-
 function addMarker() {
   const center = getViewCenterWorld();
   const position = center ?? { x: WORLD.w / 2, y: WORLD.h / 2 };
@@ -642,7 +601,6 @@ function addMarker() {
   draw();
   commitChange();
 }
-
 function createTextAt(x, y, existing) {
   const defaultValue = existing?.text ?? "";
   const value = prompt("輸入文字內容：", defaultValue);
@@ -674,7 +632,6 @@ function createTextAt(x, y, existing) {
   commitChange();
   return true;
 }
-
 function promptMarkerText(marker) {
   const value = prompt("輸入標記內容：", marker.text ?? "");
   if (value === null) return false;
@@ -683,7 +640,6 @@ function promptMarkerText(marker) {
   commitChange();
   return true;
 }
-
 function undo() {
   if (history.length <= 1) return;
   const current = history.pop();
@@ -691,14 +647,12 @@ function undo() {
   const previous = history[history.length - 1];
   loadFromSnapshot(previous);
 }
-
 function redo() {
   if (!redoStack.length) return;
   const next = redoStack.pop();
   history.push(next);
   loadFromSnapshot(next);
 }
-
 function handlePanKey(e) {
   if (e.code === "Space") {
     if (e.type === "keydown") {
@@ -714,7 +668,6 @@ function handlePanKey(e) {
     }
   }
 }
-
 function onWheel(e) {
   e.preventDefault();
   const delta = e.deltaY;
@@ -735,30 +688,23 @@ function onWheel(e) {
   draw();
 }
 
-// **** 1. 改名：onPointerDown -> onCanvasPointerDown ****
 function onCanvasPointerDown(e) {
   if (e.button === 2) { 
-    // **** 修改：右鍵平移 ****
     startPan(e);
-    // 綁定 window 監聽器，在 onWindowPointerUp 時停止
     window.addEventListener("mousemove", onWindowPointerMove);
     window.addEventListener("mouseup", onWindowPointerUp);
     return;
   }
-
   const button = e.button ?? 0;
   if (button === 1 || isPanKey) {
     startPan(e);
-    // 綁定 window 監聽器
     window.addEventListener("mousemove", onWindowPointerMove);
     window.addEventListener("mouseup", onWindowPointerUp);
     return;
   }
   if (button !== 0) return;
-
   const point = screenToWorld(e);
   isDragging = false;
-
   if (mode.startsWith("shape")) {
     const type = mode === "shape:circle" ? "circle" : "rect";
     shapeStart = { x: point.x, y: point.y, type };
@@ -798,7 +744,6 @@ function onCanvasPointerDown(e) {
       draw();
     }
   } else {
-    // idle 模式
     const hit = hitTest(ctx, objects, point.x, point.y);
     if (hit) {
       const list = pickList(hit);
@@ -810,31 +755,21 @@ function onCanvasPointerDown(e) {
       mode = "drag";
       deleteZone?.classList.add("showing");
     } else {
-      // 空白處平移
       startPan(e);
       mode = "idle";
     }
   }
-
   updateCursor();
-
-  // **** 2. 新增：綁定 window 監聽器 ****
   window.addEventListener("mousemove", onWindowPointerMove);
   window.addEventListener("mouseup", onWindowPointerUp);
 }
-
-// **** 3. 改名：onPointerMove -> onWindowPointerMove ****
 function onWindowPointerMove(e) {
   if (isPanning) {
     updatePanFromPointer(e);
     return;
   }
-
-  // **** 修正：要檢查 mode，否則沒事也在跑 ****
   if (mode === 'idle') return;
-
   const point = screenToWorld(e);
-
   if (mode === "eraser" && isErasing) {
     const idx = nearestLineIndex(
       objects.lines,
@@ -849,7 +784,6 @@ function onWindowPointerMove(e) {
     }
     return;
   }
-
   if (shapeStart && previewShape) {
     const left = Math.min(shapeStart.x, point.x);
     const top = Math.min(shapeStart.y, point.y);
@@ -868,7 +802,6 @@ function onWindowPointerMove(e) {
     draw();
     return;
   }
-
   if (mode === "drawLine" && lineStart) {
     previewLine = {
       x1: lineStart.x,
@@ -883,13 +816,11 @@ function onWindowPointerMove(e) {
     draw();
     return;
   }
-
   if (mode === "freehand" && isDrawingFree) {
     freePoints.push({ x: point.x, y: point.y });
     draw();
     return;
   }
-
   if (mode === "drag" && dragTarget) {
     const list = pickList(dragTarget);
     if (!list) return;
@@ -897,31 +828,22 @@ function onWindowPointerMove(e) {
     obj.x = point.x - dragOffset.x;
     obj.y = point.y - dragOffset.y;
     isDragging = true;
-    
     const isOver = isPointerOverDeleteZone(e);
     deleteZone?.classList.toggle("active", isOver);
-    
     draw();
   }
 }
-
-// **** 4. 改名：onPointerUp -> onWindowPointerUp ****
 function onWindowPointerUp(e) {
   const isOverDeleteZone = isPointerOverDeleteZone(e);
   deleteZone?.classList.remove("showing");
   deleteZone?.classList.remove("active");
-
-  // **** 修改：如果正在平移 (任何按鍵)，就停止 ****
   if (isPanning) {
     stopPan();
-    // **** 移除 window 監聽器 ****
     window.removeEventListener("mousemove", onWindowPointerMove);
     window.removeEventListener("mouseup", onWindowPointerUp);
     return;
   }
-
   const point = screenToWorld(e);
-
   if (shapeStart && previewShape) {
     if (
       previewShape.width > MIN_SHAPE_SIZE &&
@@ -1000,40 +922,23 @@ function onWindowPointerUp(e) {
     isDragging = false;
     updateCursor();
   } else if (mode === "idle") {
-    // 點擊空白處，但沒平移
-    // 檢查是否點到文字 (因為平移檢查在 onPointerDown)
     const hit = hitTest(ctx, objects, point.x, point.y);
     if (hit && hit.type === "text" && !isDragging) {
       const list = pickList(hit);
       createTextAt(point.x, point.y, list?.[hit.idx]);
     }
   }
-
-  // **** 5. 新增：移除 window 監聽器 ****
   window.removeEventListener("mousemove", onWindowPointerMove);
   window.removeEventListener("mouseup", onWindowPointerUp);
 }
 
-// **** 6. 刪除 onMouseLeave 函式 ****
-/*
-function onMouseLeave() {
-  // ... (此函式已刪除)
-}
-*/
-
-// (handleSingleTouchUp 函式沒變)
 function handleSingleTouchUp(e) {
   if (e.changedTouches.length > 0) {
-    // **** 改為呼叫 onWindowPointerUp ****
     onWindowPointerUp(e.changedTouches[0]);
   }
 }
 
-// **** 7. 修改事件監聽器 ****
 canvas.addEventListener("mousedown", onCanvasPointerDown);
-// canvas.addEventListener("mousemove", onPointerMove); // 已移除
-// canvas.addEventListener("mouseup", onPointerUp); // 已移除
-// canvas.addEventListener("mouseleave", onMouseLeave); // 已移除
 canvas.addEventListener("wheel", onWheel, { passive: false });
 
 canvas.addEventListener(
@@ -1051,13 +956,11 @@ canvas.addEventListener(
       return;
     }
     if (e.touches.length > 0) {
-      // **** 改為呼叫 onCanvasPointerDown ****
       onCanvasPointerDown(e.touches[0]);
     }
   },
   { passive: false }
 );
-
 canvas.addEventListener(
   "touchmove",
   (e) => {
@@ -1071,26 +974,21 @@ canvas.addEventListener(
           initialPinchDist = getPinchDist(e.touches);
           initialZoom = VIEW.zoom;
         } else {
-          // --- 縮放邏輯 ---
           if (initialPinchDist) {
             const currentPinchDist = getPinchDist(e.touches);
             const factor = currentPinchDist / initialPinchDist;
             const newZoom = clampNumber(initialZoom * factor, VIEW.minZoom, VIEW.maxZoom, VIEW.zoom);
-
             if (Math.abs(newZoom - VIEW.zoom) > 0.001) {
               const canvasPoint = getCanvasPointFromClient(center);
               const scale = getScale();
               const worldX = (canvasPoint.x - VIEW.offsetX) / scale;
               const worldY = (canvasPoint.y - VIEW.offsetY) / scale;
-
               VIEW.zoom = newZoom;
               const newScale = getScale();
-
               VIEW.offsetX = canvasPoint.x - worldX * newScale;
               VIEW.offsetY = canvasPoint.y - worldY * newScale;
             }
           }
-          // --- 平移邏輯 ---
           updatePanFromPointer(center);
         }
       }
@@ -1101,13 +999,11 @@ canvas.addEventListener(
       return;
     }
     if (e.touches.length > 0) {
-      // **** 改為呼叫 onWindowPointerMove ****
       onWindowPointerMove(e.touches[0]);
     }
   },
   { passive: false }
 );
-
 canvas.addEventListener(
   "touchend",
   (e) => {
@@ -1129,15 +1025,12 @@ canvas.addEventListener(
   },
   { passive: false }
 );
-
 canvas.addEventListener(
   "touchcancel",
   (e) => {
     e.preventDefault();
-    
     deleteZone?.classList.remove("showing");
     deleteZone?.classList.remove("active");
-
     if (isMultiTouchPanning) {
       stopPan();
       return;
@@ -1147,14 +1040,9 @@ canvas.addEventListener(
   { passive: false }
 );
 
-// **** 修改 contextmenu ****
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  // 右鍵平移已在 onCanvasPointerDown 中處理
-  // 這裡不需要額外呼叫 startPan
 });
-
-// (dblclick, resize, keydown, keyup 監聽器沒變)
 canvas.addEventListener("dblclick", (e) => {
   e.preventDefault();
   const point = screenToWorld(e);
@@ -1169,30 +1057,24 @@ canvas.addEventListener("dblclick", (e) => {
     createTextAt(item.x, item.y, item);
   }
 });
-
 window.addEventListener("resize", () => fitCanvas());
 document.addEventListener("keydown", handlePanKey, { passive: false });
 document.addEventListener("keyup", handlePanKey);
 
-
-// (所有按鈕的 addEventListener 都沒變)
-// Mode buttons
 if (drawLineBtn) drawLineBtn.addEventListener("click", () => setMode("drawLine"));
 if (freehandBtn) freehandBtn.addEventListener("click", () => setMode("freehand"));
 if (circleToolBtn) circleToolBtn.addEventListener("click", () => setMode("shape:circle"));
 if (rectToolBtn) rectToolBtn.addEventListener("click", () => setMode("shape:rect"));
 if (eraserBtn) eraserBtn.addEventListener("click", () => setMode("eraser"));
 if (textToolBtn) textToolBtn.addEventListener("click", () => setMode("text"));
-
-// Object buttons
 addBlueTower?.addEventListener("click", () => addTower("tower_blue"));
 addRedTower?.addEventListener("click", () => addTower("tower_red"));
 addBlueFlag?.addEventListener("click", () => addFlag("flag_blue"));
 addRedFlag?.addEventListener("click", () => addFlag("flag_red"));
 addMarkerBtn?.addEventListener("click", addMarker);
-
 undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
+
 
 clearBoardBtn?.addEventListener("click", () => {
   if (!confirm("確定要清空畫布嗎？")) return;
@@ -1221,13 +1103,36 @@ resetViewBtn?.addEventListener("click", () => {
   resetView();
 });
 
+async function resetToInitialState() {
+  if (!confirm("確定要將所有設定（包含地圖）還原到初始狀態嗎？這會清空目前畫布。")) return;
+  
+  await setCurrentMap(DEFAULT_MAP.id);
+
+  await new Promise((resolve, reject) => {
+    BG.onload = () => {
+      handleBgLoad(true); 
+      BG.onload = handleBgLoad; 
+      resolve();
+    };
+    BG.onerror = () => {
+      BG.onload = handleBgLoad;
+      reject(new Error("Default map failed to load."));
+    };
+
+    BG.src = DEFAULT_MAP.src;
+  });
+
+  commitChange();
+}
+
+resetAllBtn?.addEventListener("click", resetToInitialState);
+
 savePngBtn?.addEventListener("click", () => {
   const a = document.createElement("a");
   a.download = "tactic-board.png";
   a.href = canvas.toDataURL("image/png");
   a.click();
 });
-
 saveJsonBtn?.addEventListener("click", () => {
   const data = JSON.stringify(snapshotState(), null, 2);
   const blob = new Blob([data], { type: "application/json" });
@@ -1238,9 +1143,7 @@ saveJsonBtn?.addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(url);
 });
-
 loadJsonBtn?.addEventListener("click", () => jsonFileInput?.click());
-
 jsonFileInput?.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -1262,16 +1165,13 @@ jsonFileInput?.addEventListener("change", (e) => {
 });
 
 // === Save Slots ===
-// (這整個區塊都沒變)
 const SLOT_KEY = "tactic.slots.v1";
 const DEFAULT_SLOTS = [
   { id: "slot1", name: "存檔 1", data: null },
   { id: "slot2", name: "存檔 2", data: null },
   { id: "slot3", name: "存檔 3", data: null },
 ];
-
 let slots = loadSlots();
-
 function loadSlots() {
   try {
     const stored = JSON.parse(localStorage.getItem(SLOT_KEY) || "null");
@@ -1285,12 +1185,10 @@ function loadSlots() {
     return DEFAULT_SLOTS.map((s) => ({ ...s }));
   }
 }
-
 function persistSlots() {
   const toSave = slots.map(({ id, name, data }) => ({ id, name, data }));
   localStorage.setItem(SLOT_KEY, JSON.stringify(toSave));
 }
-
 function renderSlots() {
   if (!slotSelect) return;
   slotSelect.innerHTML = "";
@@ -1302,21 +1200,17 @@ function renderSlots() {
   }
   updateSlotButtons();
 }
-
 function getSelectedSlot() {
   if (!slotSelect) return null;
   return slots.find((slot) => slot.id === slotSelect.value) ?? slots[0];
 }
-
 function updateSlotButtons() {
   const slot = getSelectedSlot();
   const hasData = !!slot?.data;
   if (loadSlotBtn) loadSlotBtn.disabled = !hasData;
   if (deleteSlotBtn) deleteSlotBtn.disabled = !hasData;
 }
-
 slotSelect?.addEventListener("change", updateSlotButtons);
-
 saveSlotBtn?.addEventListener("click", () => {
   const slot = getSelectedSlot();
   if (!slot) return;
@@ -1324,13 +1218,11 @@ saveSlotBtn?.addEventListener("click", () => {
   persistSlots();
   renderSlots();
 });
-
 loadSlotBtn?.addEventListener("click", () => {
   const slot = getSelectedSlot();
   if (!slot?.data) return;
   loadFromSnapshot(slot.data, { reset: true });
 });
-
 renameSlotBtn?.addEventListener("click", () => {
   const slot = getSelectedSlot();
   if (!slot) return;
@@ -1340,7 +1232,6 @@ renameSlotBtn?.addEventListener("click", () => {
   persistSlots();
   renderSlots();
 });
-
 deleteSlotBtn?.addEventListener("click", () => {
   const slot = getSelectedSlot();
   if (!slot?.data) return;
@@ -1349,20 +1240,18 @@ deleteSlotBtn?.addEventListener("click", () => {
   persistSlots();
   renderSlots();
 });
-
 renderSlots();
 
 // === Maps ===
-// (這整個區塊都沒變)
-const MAPS_KEY = "tactic.maps.v1";
-const MAP_CURRENT_KEY = "tactic.maps.current";
+const MAPS_KEY_LF = "tactic.maps.v1";
+const MAP_CURRENT_KEY_LF = "tactic.maps.current";
 const DEFAULT_MAP = { id: "default", name: "預設地圖", src: DEFAULT_BG_SRC, builtIn: true };
 let maps = [DEFAULT_MAP];
 let currentMapId = DEFAULT_MAP.id;
 
-function loadMaps() {
+async function loadMaps() {
   try {
-    const stored = JSON.parse(localStorage.getItem(MAPS_KEY) || "null");
+    const stored = await localforage.getItem(MAPS_KEY_LF); 
     if (Array.isArray(stored)) {
       maps = [DEFAULT_MAP, ...stored.filter((m) => m && m.src)];
     }
@@ -1370,7 +1259,8 @@ function loadMaps() {
     console.warn("讀取地圖列表失敗：", err);
     maps = [DEFAULT_MAP];
   }
-  const savedId = localStorage.getItem(MAP_CURRENT_KEY);
+  
+  const savedId = await localforage.getItem(MAP_CURRENT_KEY_LF); 
   if (savedId && maps.some((m) => m.id === savedId)) {
     currentMapId = savedId;
   } else {
@@ -1378,9 +1268,14 @@ function loadMaps() {
   }
 }
 
-function saveMaps() {
+async function saveMaps() {
   const userMaps = maps.filter((m) => !m.builtIn);
-  localStorage.setItem(MAPS_KEY, JSON.stringify(userMaps));
+  try {
+    await localforage.setItem(MAPS_KEY_LF, userMaps); 
+  } catch (err) {
+    console.error("儲存地圖失敗 (可能空間不足):", err);
+    alert("儲存地圖失敗！瀏覽器儲存空間可能已滿。");
+  }
 }
 
 function generateMapId() {
@@ -1393,7 +1288,6 @@ function generateMapId() {
   }
   return `map-${Date.now().toString(36)}-${random}`;
 }
-
 function renderMaps() {
   if (!mapSelect) return;
   mapSelect.innerHTML = "";
@@ -1406,13 +1300,12 @@ function renderMaps() {
   mapSelect.value = currentMapId;
   updateMapButtons();
 }
-
 function updateMapButtons() {
   const map = maps.find((m) => m.id === currentMapId) ?? DEFAULT_MAP;
   if (deleteMapBtn) deleteMapBtn.disabled = !!map.builtIn;
 }
 
-function setCurrentMap(id) {
+async function setCurrentMap(id) {
   const map = maps.find((m) => m.id === id) ?? DEFAULT_MAP;
   currentMapId = map.id;
   if (mapSelect) mapSelect.value = currentMapId;
@@ -1422,11 +1315,11 @@ function setCurrentMap(id) {
   } else if (BG.complete) {
     BG.dispatchEvent(new Event("load"));
   }
-  localStorage.setItem(MAP_CURRENT_KEY, currentMapId);
+  await localforage.setItem(MAP_CURRENT_KEY_LF, currentMapId); 
 }
 
-mapSelect?.addEventListener("change", () => {
-  setCurrentMap(mapSelect.value);
+mapSelect?.addEventListener("change", async () => {
+  await setCurrentMap(mapSelect.value);
 });
 
 uploadMapBtn?.addEventListener("click", () => mapFileInput?.click());
@@ -1434,64 +1327,74 @@ uploadMapBtn?.addEventListener("click", () => mapFileInput?.click());
 mapFileInput?.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
+  
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => { 
     const name = prompt("輸入地圖名稱：", file.name.replace(/\.[^.]+$/, "")) || "自訂地圖";
     const id = generateMapId();
     maps.push({ id, name, src: reader.result, builtIn: false });
-    saveMaps();
+    await saveMaps(); 
     renderMaps();
-    setCurrentMap(id);
+    await setCurrentMap(id); 
   };
   reader.readAsDataURL(file);
   mapFileInput.value = "";
 });
 
-deleteMapBtn?.addEventListener("click", () => {
+deleteMapBtn?.addEventListener("click", async () => { 
   const map = maps.find((m) => m.id === currentMapId);
   if (!map || map.builtIn) return;
   if (!confirm(`刪除地圖「${map.name}」？`)) return;
   maps = maps.filter((m) => m.id !== map.id);
-  saveMaps();
+  await saveMaps(); 
   const next = maps.length > 0 ? maps[0] : DEFAULT_MAP;
   renderMaps();
-  setCurrentMap(next.id);
+  await setCurrentMap(next.id); 
 });
 
 // === Initialization ===
-// (BG.onload 沒變)
 loadImages();
-loadMaps();
-renderMaps();
-setCurrentMap(currentMapId);
 
-BG.onload = () => {
+function handleBgLoad(forceResetObjects = false) {
   const prev = { ...WORLD };
   WORLD.w = BG.naturalWidth || BG.width || WORLD.w;
   WORLD.h = BG.naturalHeight || BG.height || WORLD.h;
 
-  if (!hasInitialised) {
-    objects = defaultDeploy(DESIGN.w, DESIGN.H);
+  if (forceResetObjects || !hasInitialised) {
+    objects = defaultDeploy(DESIGN.w, DESIGN.h);
     scaleObjects(objects, DESIGN.w, DESIGN.h, WORLD.w, WORLD.h);
     hasInitialised = true;
     hasAutoDeploy = true;
+    teamSwap = false; 
+    
+    swapSpritesByRegion();
+    fitCanvas(false);
+    resetView(false);
+    draw();
+    resetHistory(); 
+    updateCursor();
   } else {
     scaleObjects(objects, prev.w, prev.h, WORLD.w, WORLD.h);
+    swapSpritesByRegion();
+    fitCanvas(false);
+    resetView(false);
+    draw();
   }
-
-  swapSpritesByRegion();
-  fitCanvas(false);
-  resetView(false);
-  draw();
-  resetHistory();
-  updateCursor();
-};
-
-fitCanvas(false);
-draw();
-updateCursor();
-updateHistoryButtons();
-
-if (hintElement) {
-  hintElement.textContent = "拖曳物件至垃圾桶刪除 · 雙擊可編輯標記/文字";
 }
+
+(async () => {
+  BG.onload = handleBgLoad; 
+
+  await loadMaps(); 
+  renderMaps();
+  await setCurrentMap(currentMapId); 
+  
+  fitCanvas(false);
+  draw();
+  updateCursor();
+  updateHistoryButtons();
+
+  if (hintElement) {
+    hintElement.textContent = "拖曳物件至垃圾桶刪除 · 雙擊可編輯標記/文字";
+  }
+})();
