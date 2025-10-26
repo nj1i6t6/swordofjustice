@@ -14,7 +14,7 @@ import { blankState, defaultDeploy } from "./state.js";
 import {
   DEFAULT_STROKE_WIDTH,
   ERASER_HIT_RADIUS,
-  LONG_PRESS_DURATION_MS, // 這行雖然沒用了，但刪除 constants.js 的匯入怕出錯，先留著
+  LONG_PRESS_DURATION_MS,
   MIN_SHAPE_SIZE,
   ZOOM_IN_FACTOR,
   ZOOM_OUT_FACTOR,
@@ -24,58 +24,47 @@ const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
 // === UI Elements ===
-// (這區塊 DOM 參照都沒變)
+// (DOM 參照都沒變)
 const mapSelect = document.getElementById("mapSelect");
 const uploadMapBtn = document.getElementById("uploadMapBtn");
 const deleteMapBtn = document.getElementById("deleteMapBtn");
 const mapFileInput = document.getElementById("mapFile");
-
 const addBlueTower = document.getElementById("addBlueTower");
 const addRedTower = document.getElementById("addRedTower");
 const addBlueFlag = document.getElementById("addBlueFlag");
 const addRedFlag = document.getElementById("addRedFlag");
 const addMarkerBtn = document.getElementById("addMarker");
-
 const markerPalette = document.getElementById("markerPalette");
 const linePalette = document.getElementById("linePalette");
 const textPalette = document.getElementById("textPalette");
-
 const lineDashSelect = document.getElementById("lineDash");
 const lineWidthInput = document.getElementById("lineWidth");
 const lineWidthValue = document.getElementById("lineWidthValue");
 const arrowType = document.getElementById("arrowType");
 const textSizeInput = document.getElementById("textSize");
-
 const drawLineBtn = document.getElementById("drawLineBtn");
 const freehandBtn = document.getElementById("freehandBtn");
 const circleToolBtn = document.getElementById("circleToolBtn");
 const rectToolBtn = document.getElementById("rectToolBtn");
 const eraserBtn = document.getElementById("eraserBtn");
 const textToolBtn = document.getElementById("textToolBtn");
-
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 const clearBoardBtn = document.getElementById("clearBoardBtn");
 const swapColorBtn = document.getElementById("swapColorBtn");
 const resetViewBtn = document.getElementById("resetViewBtn");
-
 const saveJsonBtn = document.getElementById("saveJsonBtn");
 const loadJsonBtn = document.getElementById("loadJsonBtn");
 const jsonFileInput = document.getElementById("jsonFile");
 const savePngBtn = document.getElementById("savePng");
-
 const slotSelect = document.getElementById("slotSelect");
 const saveSlotBtn = document.getElementById("saveSlotBtn");
 const loadSlotBtn = document.getElementById("loadSlotBtn");
 const renameSlotBtn = document.getElementById("renameSlotBtn");
 const deleteSlotBtn = document.getElementById("deleteSlotBtn");
-
 const zoomLevel = document.getElementById("zoomLevel");
-
-// **** 新增 DOM 參照 ****
 const deleteZone = document.getElementById("deleteZone");
 const hintElement = document.getElementById("hint");
-// **********************
 
 // === Palettes ===
 // (這區塊沒變)
@@ -169,7 +158,7 @@ let hasInitialised = false;
 let hasAutoDeploy = false;
 
 // Modes & interaction
-let mode = "idle"; // idle | drag | drawLine | freehand | eraser | shape:circle | shape:rect | text
+let mode = "idle";
 let dragTarget = null;
 let dragOffset = { x: 0, y: 0 };
 let lineStart = null;
@@ -181,10 +170,6 @@ let eraserChanged = false;
 let shapeStart = null;
 let previewShape = null;
 let isDragging = false;
-// **** 刪除 longPressTimer 和 didLongPress ****
-// let longPressTimer = null;
-// let didLongPress = false;
-// *****************************************
 let isPanKey = false;
 let isPanning = false;
 let isMultiTouchPanning = false;
@@ -342,11 +327,8 @@ function getTouchCenter(touches) {
   };
 }
 
-// **** 新增輔助函式 ****
 function isPointerOverDeleteZone(e) {
   if (!deleteZone) return false;
-  // e 可能是 MouseEvent 或 Touch (來自 e.changedTouches[0])
-  // 它們都有 clientX 和 clientY
   const clientX = e.clientX;
   const clientY = e.clientY;
   if (clientX == null || clientY == null) return false;
@@ -359,8 +341,6 @@ function isPointerOverDeleteZone(e) {
     clientY <= rect.bottom
   );
 }
-// **********************
-
 
 function beginWorld() {
   const scale = getScale();
@@ -508,11 +488,10 @@ function setMode(newMode) {
   updateCursor();
 }
 
+
 function startPanFromPointer(pointer) {
   isPanning = true;
   panLast = getCanvasPointFromClient(pointer);
-  // **** 刪除 cancelLongPress() ****
-  // cancelLongPress();
   updateCursor();
 }
 
@@ -538,30 +517,6 @@ function stopPan() {
   initialPinchDist = null; 
   updateCursor();
 }
-
-// **** 刪除 cancelLongPress 和 scheduleLongPress 函式 ****
-/*
-function cancelLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-}
-
-function scheduleLongPress(list, index) {
-  cancelLongPress();
-  longPressTimer = setTimeout(() => {
-    didLongPress = true;
-    list.splice(index, 1);
-    draw();
-    commitChange();
-    mode = "idle";
-    dragTarget = null;
-    updateCursor();
-  }, LONG_PRESS_DURATION_MS);
-}
-*/
-// *****************************************************
 
 // (scaleObjects, swapSpritesByRegion, fitCanvas, pickList... 這區塊函式都沒變)
 function scaleObjects(obj, fw, fh, tw, th) {
@@ -780,22 +735,29 @@ function onWheel(e) {
   draw();
 }
 
-// **** 修改 onPointerDown ****
-function onPointerDown(e) {
-  if (e.button === 2) return; // handled via contextmenu
+// **** 1. 改名：onPointerDown -> onCanvasPointerDown ****
+function onCanvasPointerDown(e) {
+  if (e.button === 2) { 
+    // **** 修改：右鍵平移 ****
+    startPan(e);
+    // 綁定 window 監聽器，在 onWindowPointerUp 時停止
+    window.addEventListener("mousemove", onWindowPointerMove);
+    window.addEventListener("mouseup", onWindowPointerUp);
+    return;
+  }
+
   const button = e.button ?? 0;
   if (button === 1 || isPanKey) {
     startPan(e);
+    // 綁定 window 監聽器
+    window.addEventListener("mousemove", onWindowPointerMove);
+    window.addEventListener("mouseup", onWindowPointerUp);
     return;
   }
   if (button !== 0) return;
 
   const point = screenToWorld(e);
   isDragging = false;
-  // **** 刪除 didLongPress 和 cancelLongPress ****
-  // didLongPress = false;
-  // cancelLongPress();
-  // *****************************************
 
   if (mode.startsWith("shape")) {
     const type = mode === "shape:circle" ? "circle" : "rect";
@@ -810,30 +772,18 @@ function onPointerDown(e) {
       strokeWidth: selectedLineWidth,
       dash: selectedLineDash.slice(),
     };
-    return;
-  }
-
-  if (mode === "text") {
+  } else if (mode === "text") {
     createTextAt(point.x, point.y);
-    return;
-  }
-
-  if (mode === "drawLine") {
+  } else if (mode === "drawLine") {
     if (!lineStart) {
       lineStart = { x: point.x, y: point.y };
       previewLine = null;
     }
-    return;
-  }
-
-  if (mode === "freehand") {
+  } else if (mode === "freehand") {
     isDrawingFree = true;
     freePoints = [{ x: point.x, y: point.y }];
     draw();
-    return;
-  }
-
-  if (mode === "eraser") {
+  } else if (mode === "eraser") {
     isErasing = true;
     eraserChanged = false;
     const idx = nearestLineIndex(
@@ -847,36 +797,41 @@ function onPointerDown(e) {
       eraserChanged = true;
       draw();
     }
-    return;
+  } else {
+    // idle 模式
+    const hit = hitTest(ctx, objects, point.x, point.y);
+    if (hit) {
+      const list = pickList(hit);
+      if (!list) return;
+      dragTarget = { type: hit.type, idx: hit.idx };
+      const obj = list[hit.idx];
+      dragOffset.x = point.x - (obj.x ?? point.x);
+      dragOffset.y = point.y - (obj.y ?? point.y);
+      mode = "drag";
+      deleteZone?.classList.add("showing");
+    } else {
+      // 空白處平移
+      startPan(e);
+      mode = "idle";
+    }
   }
 
-  const hit = hitTest(ctx, objects, point.x, point.y);
-  if (hit) {
-    const list = pickList(hit);
-    if (!list) return;
-    dragTarget = { type: hit.type, idx: hit.idx };
-    const obj = list[hit.idx];
-    dragOffset.x = point.x - (obj.x ?? point.x);
-    dragOffset.y = point.y - (obj.y ?? point.y);
-    mode = "drag";
-    // **** 刪除 scheduleLongPress，改為顯示刪除區 ****
-    // scheduleLongPress(list, hit.idx);
-    deleteZone?.classList.add("showing");
-    // ********************************************
-  } else {
-    // 空白處平移 (這個邏輯不變)
-    startPan(e);
-    mode = "idle";
-  }
   updateCursor();
+
+  // **** 2. 新增：綁定 window 監聽器 ****
+  window.addEventListener("mousemove", onWindowPointerMove);
+  window.addEventListener("mouseup", onWindowPointerUp);
 }
 
-// **** 修改 onPointerMove ****
-function onPointerMove(e) {
+// **** 3. 改名：onPointerMove -> onWindowPointerMove ****
+function onWindowPointerMove(e) {
   if (isPanning) {
     updatePanFromPointer(e);
     return;
   }
+
+  // **** 修正：要檢查 mode，否則沒事也在跑 ****
+  if (mode === 'idle') return;
 
   const point = screenToWorld(e);
 
@@ -938,49 +893,34 @@ function onPointerMove(e) {
   if (mode === "drag" && dragTarget) {
     const list = pickList(dragTarget);
     if (!list) return;
-    // **** 刪除 cancelLongPress ****
-    // cancelLongPress();
-    // *****************************
     const obj = list[dragTarget.idx];
     obj.x = point.x - dragOffset.x;
     obj.y = point.y - dragOffset.y;
     isDragging = true;
     
-    // **** 新增：檢查是否懸停在刪除區上 ****
     const isOver = isPointerOverDeleteZone(e);
     deleteZone?.classList.toggle("active", isOver);
-    // ************************************
     
     draw();
   }
 }
 
-// **** 修改 onPointerUp ****
-function onPointerUp(e) {
-  // **** 檢查是否在刪除區，並隱藏刪除區 ****
+// **** 4. 改名：onPointerUp -> onWindowPointerUp ****
+function onWindowPointerUp(e) {
   const isOverDeleteZone = isPointerOverDeleteZone(e);
   deleteZone?.classList.remove("showing");
   deleteZone?.classList.remove("active");
-  // ************************************
 
+  // **** 修改：如果正在平移 (任何按鍵)，就停止 ****
   if (isPanning) {
     stopPan();
+    // **** 移除 window 監聽器 ****
+    window.removeEventListener("mousemove", onWindowPointerMove);
+    window.removeEventListener("mouseup", onWindowPointerUp);
     return;
   }
 
   const point = screenToWorld(e);
-  // **** 刪除 cancelLongPress 和 didLongPress 檢查 ****
-  // cancelLongPress();
-  /*
-  if (didLongPress) {
-    didLongPress = false;
-    mode = "idle";
-    dragTarget = null;
-    updateCursor();
-    return;
-  }
-  */
-  // *************************************************
 
   if (shapeStart && previewShape) {
     if (
@@ -1002,10 +942,7 @@ function onPointerUp(e) {
     }
     shapeStart = null;
     previewShape = null;
-    return;
-  }
-
-  if (mode === "drawLine" && lineStart) {
+  } else if (mode === "drawLine" && lineStart) {
     objects.lines.push({
       x1: lineStart.x,
       y1: lineStart.y,
@@ -1020,10 +957,7 @@ function onPointerUp(e) {
     previewLine = null;
     draw();
     commitChange();
-    return;
-  }
-
-  if (mode === "freehand" && isDrawingFree) {
+  } else if (mode === "freehand" && isDrawingFree) {
     if (freePoints.length > 1) {
       objects.lines.push({
         kind: "free",
@@ -1037,29 +971,20 @@ function onPointerUp(e) {
     }
     isDrawingFree = false;
     freePoints = [];
-    return;
-  }
-
-  if (mode === "eraser" && isErasing) {
+  } else if (mode === "eraser" && isErasing) {
     if (eraserChanged) {
       commitChange();
     }
     isErasing = false;
     eraserChanged = false;
-    return;
-  }
-
-  if (mode === "drag" && dragTarget) {
+  } else if (mode === "drag" && dragTarget) {
     const list = pickList(dragTarget);
     if (list) {
-      // **** 修改：檢查是刪除、拖曳還是點擊 ****
       if (isOverDeleteZone) {
-        // 1. 刪除
         list.splice(dragTarget.idx, 1);
         draw();
         commitChange();
       } else if (!isDragging) {
-        // 2. 點擊 (沒有拖曳)
         const obj = list[dragTarget.idx];
         if (dragTarget.type === "marker") {
           promptMarkerText(obj);
@@ -1067,72 +992,50 @@ function onPointerUp(e) {
           createTextAt(obj.x, obj.y, obj);
         }
       } else {
-        // 3. 拖曳 (有拖曳，且沒在刪除區)
         commitChange();
       }
-      // ****************************************
     }
     mode = "idle";
     dragTarget = null;
     isDragging = false;
     updateCursor();
-    return;
-  }
-
-  if (mode === "idle") {
+  } else if (mode === "idle") {
+    // 點擊空白處，但沒平移
+    // 檢查是否點到文字 (因為平移檢查在 onPointerDown)
     const hit = hitTest(ctx, objects, point.x, point.y);
-    if (hit && hit.type === "text") {
+    if (hit && hit.type === "text" && !isDragging) {
       const list = pickList(hit);
       createTextAt(point.x, point.y, list?.[hit.idx]);
     }
   }
+
+  // **** 5. 新增：移除 window 監聽器 ****
+  window.removeEventListener("mousemove", onWindowPointerMove);
+  window.removeEventListener("mouseup", onWindowPointerUp);
 }
 
-// **** 修改 onMouseLeave ****
+// **** 6. 刪除 onMouseLeave 函式 ****
+/*
 function onMouseLeave() {
-  if (mode === "drag") {
-    mode = "idle";
-    dragTarget = null;
-  }
-  if (mode === "freehand") {
-    isDrawingFree = false;
-    freePoints = [];
-  }
-  if (mode === "eraser") {
-    isErasing = false;
-    eraserChanged = false;
-  }
-  shapeStart = null;
-  previewShape = null;
-  // **** 刪除 cancelLongPress ****
-  // cancelLongPress();
-  stopPan();
-  previewLine = null;
-  isDragging = false;
-  
-  // **** 新增：隱藏刪除區 ****
-  deleteZone?.classList.remove("showing");
-  deleteZone?.classList.remove("active");
-  // ************************
-
-  updateCursor();
+  // ... (此函式已刪除)
 }
+*/
 
 // (handleSingleTouchUp 函式沒變)
 function handleSingleTouchUp(e) {
   if (e.changedTouches.length > 0) {
-    onPointerUp(e.changedTouches[0]);
+    // **** 改為呼叫 onWindowPointerUp ****
+    onWindowPointerUp(e.changedTouches[0]);
   }
 }
 
-// (mousedown, mousemove, mouseup, mouseleave, wheel 監聽器沒變)
-canvas.addEventListener("mousedown", onPointerDown);
-canvas.addEventListener("mousemove", onPointerMove);
-canvas.addEventListener("mouseup", onPointerUp);
-canvas.addEventListener("mouseleave", onMouseLeave);
+// **** 7. 修改事件監聽器 ****
+canvas.addEventListener("mousedown", onCanvasPointerDown);
+// canvas.addEventListener("mousemove", onPointerMove); // 已移除
+// canvas.addEventListener("mouseup", onPointerUp); // 已移除
+// canvas.addEventListener("mouseleave", onMouseLeave); // 已移除
 canvas.addEventListener("wheel", onWheel, { passive: false });
 
-// (touchstart, touchmove, touchend 監聽器沒變)
 canvas.addEventListener(
   "touchstart",
   (e) => {
@@ -1141,16 +1044,20 @@ canvas.addEventListener(
       const center = getTouchCenter(e.touches);
       if (center) {
         isMultiTouchPanning = true;
-        startPanFromPointer(center); // 開始平移
-        initialPinchDist = getPinchDist(e.touches); // 儲存初始距離
-        initialZoom = VIEW.zoom; // 儲存初始縮放
+        startPanFromPointer(center);
+        initialPinchDist = getPinchDist(e.touches);
+        initialZoom = VIEW.zoom;
       }
       return;
     }
-    if (e.touches.length > 0) onPointerDown(e.touches[0]);
+    if (e.touches.length > 0) {
+      // **** 改為呼叫 onCanvasPointerDown ****
+      onCanvasPointerDown(e.touches[0]);
+    }
   },
   { passive: false }
 );
+
 canvas.addEventListener(
   "touchmove",
   (e) => {
@@ -1159,7 +1066,6 @@ canvas.addEventListener(
       const center = getTouchCenter(e.touches);
       if (center) {
         if (!isPanning) {
-          // 備用：萬一 touchstart 沒觸發
           isMultiTouchPanning = true;
           startPanFromPointer(center);
           initialPinchDist = getPinchDist(e.touches);
@@ -1172,31 +1078,32 @@ canvas.addEventListener(
             const newZoom = clampNumber(initialZoom * factor, VIEW.minZoom, VIEW.maxZoom, VIEW.zoom);
 
             if (Math.abs(newZoom - VIEW.zoom) > 0.001) {
-              // 類似 onWheel，以雙指中心點為錨點縮放
               const canvasPoint = getCanvasPointFromClient(center);
               const scale = getScale();
               const worldX = (canvasPoint.x - VIEW.offsetX) / scale;
               const worldY = (canvasPoint.y - VIEW.offsetY) / scale;
 
-              VIEW.zoom = newZoom; // 設定新縮放
+              VIEW.zoom = newZoom;
               const newScale = getScale();
 
-              // 調整偏移
               VIEW.offsetX = canvasPoint.x - worldX * newScale;
               VIEW.offsetY = canvasPoint.y - worldY * newScale;
             }
           }
           // --- 平移邏輯 ---
-          updatePanFromPointer(center); // 繼續平移
+          updatePanFromPointer(center);
         }
       }
       return;
     }
     if (isMultiTouchPanning) {
-      stopPan(); // 從 2 指變 1 指，停止平移/縮放
+      stopPan();
       return;
     }
-    if (e.touches.length > 0) onPointerMove(e.touches[0]);
+    if (e.touches.length > 0) {
+      // **** 改為呼叫 onWindowPointerMove ****
+      onWindowPointerMove(e.touches[0]);
+    }
   },
   { passive: false }
 );
@@ -1207,16 +1114,14 @@ canvas.addEventListener(
     e.preventDefault();
     if (isMultiTouchPanning) {
       if (e.touches.length >= 2) {
-        // 放開一指，但還剩兩指以上
         const center = getTouchCenter(e.touches);
         if (center) {
-          // 重設平移和縮放基準
           startPanFromPointer(center);
           initialPinchDist = getPinchDist(e.touches);
           initialZoom = VIEW.zoom;
         }
       } else {
-        stopPan(); // 手指都放開了
+        stopPan();
       }
       return;
     }
@@ -1225,16 +1130,13 @@ canvas.addEventListener(
   { passive: false }
 );
 
-// **** 修改 touchcancel ****
 canvas.addEventListener(
   "touchcancel",
   (e) => {
     e.preventDefault();
     
-    // **** 新增：隱藏刪除區 ****
     deleteZone?.classList.remove("showing");
     deleteZone?.classList.remove("active");
-    // ************************
 
     if (isMultiTouchPanning) {
       stopPan();
@@ -1244,24 +1146,12 @@ canvas.addEventListener(
   },
   { passive: false }
 );
-// *************************
 
 // **** 修改 contextmenu ****
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  // **** 改為：右鍵直接平移 ****
-  startPan(e);
-  // **** 舊的右鍵刪除邏輯已移除 ****
-  /*
-  const point = screenToWorld(e);
-  const hit = hitTest(ctx, objects, point.x, point.y);
-  if (!hit) return;
-  const list = pickList(hit);
-  if (!list) return;
-  list.splice(hit.idx, 1);
-  draw();
-  commitChange();
-  */
+  // 右鍵平移已在 onCanvasPointerDown 中處理
+  // 這裡不需要額外呼叫 startPan
 });
 
 // (dblclick, resize, keydown, keyup 監聽器沒變)
@@ -1581,7 +1471,7 @@ BG.onload = () => {
   WORLD.h = BG.naturalHeight || BG.height || WORLD.h;
 
   if (!hasInitialised) {
-    objects = defaultDeploy(DESIGN.w, DESIGN.h);
+    objects = defaultDeploy(DESIGN.w, DESIGN.H);
     scaleObjects(objects, DESIGN.w, DESIGN.h, WORLD.w, WORLD.h);
     hasInitialised = true;
     hasAutoDeploy = true;
@@ -1602,8 +1492,6 @@ draw();
 updateCursor();
 updateHistoryButtons();
 
-// **** 新增：更新提示文字 ****
 if (hintElement) {
   hintElement.textContent = "拖曳物件至垃圾桶刪除 · 雙擊可編輯標記/文字";
 }
-// **************************
