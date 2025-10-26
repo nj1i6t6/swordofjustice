@@ -37,7 +37,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  height: 100vh; /* <-- 新增這一行來修正捲動問題 */
+  height: 100vh; /* <-- 修正捲動問題 */
 }
 
 .section {
@@ -179,6 +179,11 @@ select {
   justify-content: center;
   align-items: center;
   padding: 20px;
+  /* **** 需
+  ...
+  
+  加 overflow: hidden 避免刪除區跑出畫布外 **** */
+  overflow: hidden;
 }
 
 #board {
@@ -218,6 +223,47 @@ select {
   text-align: center;
 }
 
+/* **** 新增刪除區樣式 **** */
+#deleteZone {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translate(-50%, 150%);
+  background: rgba(15, 23, 42, 0.8);
+  border: 2px dashed var(--danger);
+  border-radius: 16px;
+  padding: 12px 24px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 8px 24px rgba(15,23,42,0.4);
+  backdrop-filter: blur(4px);
+}
+
+#deleteZone.showing {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+#deleteZone.active {
+  background: var(--danger);
+  border-color: #fff;
+  transform: translate(-50%, 0) scale(1.08);
+}
+
+#deleteZone svg {
+  stroke: white;
+}
+/* ********************** */
+
+
 @media (max-width: 1120px) {
   .wrap {
     grid-template-columns: minmax(250px, 320px) 1fr;
@@ -248,6 +294,11 @@ select {
     bottom: 16px;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  /* 調整刪除區在手機上的位置 */
+  #deleteZone {
+    bottom: 64px; /* 移到 zoom 提示的上方 */
   }
 }
 
