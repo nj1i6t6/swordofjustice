@@ -1,3 +1,5 @@
+// --- START OF FILE board.js ---
+
 import {
   BG,
   DEFAULT_BG_SRC,
@@ -8,6 +10,8 @@ import {
   drawTower,
   hitTest,
   loadImages,
+  applySettings, // <-- MODIFIED: 新增匯入
+  SETTINGS,      // <-- MODIFIED: 新增匯入
 } from "./objects.js";
 import { drawArrowLine, drawPolyline, nearestLineIndex } from "./lines.js";
 import { blankState, defaultDeploy } from "./state.js";
@@ -24,59 +28,52 @@ const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
 // === UI Elements ===
+// (此處 UI 元素參照不變)
 const mapSelect = document.getElementById("mapSelect");
 const uploadMapBtn = document.getElementById("uploadMapBtn");
 const deleteMapBtn = document.getElementById("deleteMapBtn");
 const mapFileInput = document.getElementById("mapFile");
-
 const addBlueTower = document.getElementById("addBlueTower");
 const addRedTower = document.getElementById("addRedTower");
 const addBlueFlag = document.getElementById("addBlueFlag");
 const addRedFlag = document.getElementById("addRedFlag");
 const addMarkerBtn = document.getElementById("addMarker");
-
 const markerPalette = document.getElementById("markerPalette");
 const linePalette = document.getElementById("linePalette");
 const textPalette = document.getElementById("textPalette");
-
 const lineDashSelect = document.getElementById("lineDash");
 const lineWidthInput = document.getElementById("lineWidth");
 const lineWidthValue = document.getElementById("lineWidthValue");
 const arrowType = document.getElementById("arrowType");
 const textSizeInput = document.getElementById("textSize");
-
 const drawLineBtn = document.getElementById("drawLineBtn");
 const freehandBtn = document.getElementById("freehandBtn");
 const circleToolBtn = document.getElementById("circleToolBtn");
 const rectToolBtn = document.getElementById("rectToolBtn");
 const eraserBtn = document.getElementById("eraserBtn");
 const textToolBtn = document.getElementById("textToolBtn");
-
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 const clearBoardBtn = document.getElementById("clearBoardBtn");
 const swapColorBtn = document.getElementById("swapColorBtn");
 const resetViewBtn = document.getElementById("resetViewBtn");
-const resetAllBtn = document.getElementById("resetAllBtn"); // <-- **** 新增按鈕參照 ****
-
+const resetAllBtn = document.getElementById("resetAllBtn");
 const saveJsonBtn = document.getElementById("saveJsonBtn");
 const loadJsonBtn = document.getElementById("loadJsonBtn");
 const jsonFileInput = document.getElementById("jsonFile");
 const savePngBtn = document.getElementById("savePng");
-
 const slotSelect = document.getElementById("slotSelect");
 const saveSlotBtn = document.getElementById("saveSlotBtn");
 const loadSlotBtn = document.getElementById("loadSlotBtn");
 const renameSlotBtn = document.getElementById("renameSlotBtn");
 const deleteSlotBtn = document.getElementById("deleteSlotBtn");
-
 const zoomLevel = document.getElementById("zoomLevel");
-
 const deleteZone = document.getElementById("deleteZone");
 const hintElement = document.getElementById("hint");
 
 
 // === Palettes ===
+// (此處 Palettes 邏輯不變)
 let selectedMarkerColor = "#fbbf24";
 let selectedLineColor = "#22c55e";
 let selectedTextColor = "#ffffff";
@@ -88,7 +85,6 @@ const dashMap = {
 let selectedLineDash = dashMap[lineDashSelect?.value ?? "solid"].slice();
 let selectedLineWidth =
   Number(lineWidthInput?.value ?? DEFAULT_STROKE_WIDTH) || DEFAULT_STROKE_WIDTH;
-
 function bindPalette(container, onChoose, initialColor) {
   if (!container) return;
   const chips = Array.from(container.querySelectorAll(".chip"));
@@ -104,11 +100,9 @@ function bindPalette(container, onChoose, initialColor) {
   );
   setActive(initialColor);
 }
-
 bindPalette(markerPalette, (c) => (selectedMarkerColor = c), selectedMarkerColor);
 bindPalette(linePalette, (c) => (selectedLineColor = c), selectedLineColor);
 bindPalette(textPalette, (c) => (selectedTextColor = c), selectedTextColor);
-
 function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
@@ -154,12 +148,20 @@ const DESIGN = { w: 1280, h: 720 };
 let WORLD = { w: 1280, h: 720 };
 const VIEW = { baseScale: 1, zoom: 1, offsetX: 0, offsetY: 0, minZoom: 0.4, maxZoom: 3 };
 
+// <-- MODIFIED: 保留一份原始設定，用於動態計算
+const ORIGINAL_SETTINGS = {
+  towerSize: SETTINGS.towerSize,
+  flagSize: SETTINGS.flagSize,
+  markerRadius: SETTINGS.markerRadius,
+};
+
 let objects = blankState();
 let teamSwap = false;
 let hasInitialised = false;
 let hasAutoDeploy = false;
 
 // Modes & interaction
+// (此處 Modes & interaction 邏輯不變)
 let mode = "idle";
 let dragTarget = null;
 let dragOffset = { x: 0, y: 0 };
@@ -184,11 +186,13 @@ const HISTORY_LIMIT = 80;
 let history = [];
 let redoStack = [];
 
+// <-- MODIFIED: 修改 snapshotState 以包含地圖來源
 function snapshotState() {
   return {
     objects: JSON.parse(JSON.stringify(objects)),
     teamSwap,
     world: { w: WORLD.w, h: WORLD.h },
+    mapSrc: BG.src, // <-- 新增這一行來儲存地圖
   };
 }
 function resetHistory() {
@@ -206,19 +210,46 @@ function updateHistoryButtons() {
   if (undoBtn) undoBtn.disabled = history.length <= 1;
   if (redoBtn) redoBtn.disabled = redoStack.length === 0;
 }
-function loadFromSnapshot(snapshot, { reset = false } = {}) {
+
+// <-- MODIFIED: 修改 loadFromSnapshot 以處理地圖圖片，並改為 async
+async function loadFromSnapshot(snapshot, { reset = false } = {}) {
   if (!snapshot || !snapshot.objects) return false;
-  const clone = JSON.parse(JSON.stringify(snapshot.objects));
-  if (snapshot.world && snapshot.world.w && snapshot.world.h) {
-    const { w, h } = snapshot.world;
-    if (w !== WORLD.w || h !== WORLD.h) {
-      scaleObjects(clone, w, h, WORLD.w, WORLD.h);
-    }
+
+  // 新增的地圖載入邏輯
+  if (snapshot.mapSrc && BG.src !== snapshot.mapSrc) {
+    await new Promise((resolve, reject) => {
+      // 暫時覆蓋 onload 事件
+      BG.onload = () => {
+        BG.onload = handleBgLoad; // 恢復預設的處理器
+        resolve();
+      };
+      BG.onerror = () => {
+        BG.onload = handleBgLoad; // 恢復預設的處理器
+        reject(new Error("無法從存檔載入地圖圖片。"));
+      };
+      BG.src = snapshot.mapSrc;
+    });
+    // handleBgLoad 會在圖片載入後被觸發，處理 WORLD 尺寸等
   }
-  objects = clone;
+
+  // 因為存檔是完整的，直接使用其中的物件和世界尺寸
+  if (snapshot.world && snapshot.world.w && snapshot.world.h) {
+    WORLD.w = snapshot.world.w;
+    WORLD.h = snapshot.world.h;
+    objects = JSON.parse(JSON.stringify(snapshot.objects));
+  } else {
+    // 為了相容沒有 world 尺寸的舊版存檔
+    const clone = JSON.parse(JSON.stringify(snapshot.objects));
+    scaleObjects(clone, DESIGN.w, DESIGN.h, WORLD.w, WORLD.h); // Fallback
+    objects = clone;
+  }
+  
   teamSwap = !!snapshot.teamSwap;
   swapSpritesByRegion();
-  draw();
+  fitCanvas(false); // 更新畫布尺寸，但不重繪
+  resetView(false); // 重設視角，但不重繪
+  draw(); // 最後統一繪製一次
+
   if (reset) {
     resetHistory();
   } else {
@@ -226,6 +257,7 @@ function loadFromSnapshot(snapshot, { reset = false } = {}) {
   }
   return true;
 }
+
 
 function getScale() {
   return VIEW.baseScale * VIEW.zoom;
@@ -335,6 +367,7 @@ function endWorld() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+// draw() 函式本身不變
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   beginWorld();
@@ -411,6 +444,7 @@ function draw() {
   updateZoomIndicator();
 }
 
+// (此處 MODE_BUTTONS, updateCursor, setMode, Pan 相關函式不變)
 const MODE_BUTTONS = new Map([
   ["drawLine", drawLineBtn],
   ["freehand", freehandBtn],
@@ -459,7 +493,6 @@ function setMode(newMode) {
   }
   updateCursor();
 }
-
 function startPanFromPointer(pointer) {
   isPanning = true;
   panLast = getCanvasPointFromClient(pointer);
@@ -486,6 +519,7 @@ function stopPan() {
   updateCursor();
 }
 
+// scaleObjects 函式不變
 function scaleObjects(obj, fw, fh, tw, th) {
   if (!fw || !fh || !tw || !th) return;
   const scale = Math.min(tw / fw, th / fh);
@@ -568,7 +602,7 @@ function pickList(hit) {
   if (hit.type === "text") return objects.texts;
   return null;
 }
-
+// (此處 addTower, addFlag, addMarker, createTextAt, promptMarkerText, undo, redo, handlePanKey, onWheel 等函式不變)
 function addTower(sprite) {
   const center = getViewCenterWorld();
   const position = center ?? {
@@ -688,6 +722,7 @@ function onWheel(e) {
   draw();
 }
 
+// (此處 Canvas 事件監聽器不變)
 function onCanvasPointerDown(e) {
   if (e.button === 2) { 
     startPan(e);
@@ -931,16 +966,13 @@ function onWindowPointerUp(e) {
   window.removeEventListener("mousemove", onWindowPointerMove);
   window.removeEventListener("mouseup", onWindowPointerUp);
 }
-
 function handleSingleTouchUp(e) {
   if (e.changedTouches.length > 0) {
     onWindowPointerUp(e.changedTouches[0]);
   }
 }
-
 canvas.addEventListener("mousedown", onCanvasPointerDown);
 canvas.addEventListener("wheel", onWheel, { passive: false });
-
 canvas.addEventListener(
   "touchstart",
   (e) => {
@@ -1039,7 +1071,6 @@ canvas.addEventListener(
   },
   { passive: false }
 );
-
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
 });
@@ -1061,6 +1092,7 @@ window.addEventListener("resize", () => fitCanvas());
 document.addEventListener("keydown", handlePanKey, { passive: false });
 document.addEventListener("keyup", handlePanKey);
 
+// UI 按鈕事件監聽器不變
 if (drawLineBtn) drawLineBtn.addEventListener("click", () => setMode("drawLine"));
 if (freehandBtn) freehandBtn.addEventListener("click", () => setMode("freehand"));
 if (circleToolBtn) circleToolBtn.addEventListener("click", () => setMode("shape:circle"));
@@ -1074,8 +1106,6 @@ addRedFlag?.addEventListener("click", () => addFlag("flag_red"));
 addMarkerBtn?.addEventListener("click", addMarker);
 undoBtn?.addEventListener("click", undo);
 redoBtn?.addEventListener("click", redo);
-
-
 clearBoardBtn?.addEventListener("click", () => {
   if (!confirm("確定要清空畫布嗎？")) return;
   objects = blankState();
@@ -1084,7 +1114,6 @@ clearBoardBtn?.addEventListener("click", () => {
   draw();
   commitChange();
 });
-
 swapColorBtn?.addEventListener("click", () => {
   if (!hasAutoDeploy) {
     objects = defaultDeploy(DESIGN.w, DESIGN.h);
@@ -1098,35 +1127,21 @@ swapColorBtn?.addEventListener("click", () => {
   draw();
   commitChange();
 });
-
 resetViewBtn?.addEventListener("click", () => {
   resetView();
 });
-
 async function resetToInitialState() {
   if (!confirm("確定要將所有設定（包含地圖）還原到初始狀態嗎？這會清空目前畫布。")) return;
   
   await setCurrentMap(DEFAULT_MAP.id);
 
-  await new Promise((resolve, reject) => {
-    BG.onload = () => {
-      handleBgLoad(true); 
-      BG.onload = handleBgLoad; 
-      resolve();
-    };
-    BG.onerror = () => {
-      BG.onload = handleBgLoad;
-      reject(new Error("Default map failed to load."));
-    };
-
-    BG.src = DEFAULT_MAP.src;
-  });
+  // BG.src is already set by setCurrentMap, we just need to wait for the load event
+  // handleBgLoad will be triggered by the 'load' event.
+  // No need for a separate promise here as setCurrentMap handles it.
 
   commitChange();
 }
-
 resetAllBtn?.addEventListener("click", resetToInitialState);
-
 savePngBtn?.addEventListener("click", () => {
   const a = document.createElement("a");
   a.download = "tactic-board.png";
@@ -1144,15 +1159,17 @@ saveJsonBtn?.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 loadJsonBtn?.addEventListener("click", () => jsonFileInput?.click());
+
+// <-- MODIFIED: 修改讀取 JSON 的事件，以支援 async/await
 jsonFileInput?.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => { // <-- 改為 async
     try {
       const data = JSON.parse(reader.result);
-      const snapshot = data.objects ? data : { objects: data };
-      if (loadFromSnapshot(snapshot, { reset: true })) {
+      const snapshot = data.objects ? data : { objects: data }; // 相容舊格式
+      if (await loadFromSnapshot(snapshot, { reset: true })) { // <-- 改為 await
         hasAutoDeploy = false;
       }
     } catch (err) {
@@ -1165,6 +1182,7 @@ jsonFileInput?.addEventListener("change", (e) => {
 });
 
 // === Save Slots ===
+// (此處 Save Slots 邏輯不變，除了 loadSlotBtn)
 const SLOT_KEY = "tactic.slots.v1";
 const DEFAULT_SLOTS = [
   { id: "slot1", name: "存檔 1", data: null },
@@ -1218,10 +1236,11 @@ saveSlotBtn?.addEventListener("click", () => {
   persistSlots();
   renderSlots();
 });
-loadSlotBtn?.addEventListener("click", () => {
+// <-- MODIFIED: 修改讀取插槽的事件，以支援 async/await
+loadSlotBtn?.addEventListener("click", async () => { // <-- 改為 async
   const slot = getSelectedSlot();
   if (!slot?.data) return;
-  loadFromSnapshot(slot.data, { reset: true });
+  await loadFromSnapshot(slot.data, { reset: true }); // <-- 改為 await
 });
 renameSlotBtn?.addEventListener("click", () => {
   const slot = getSelectedSlot();
@@ -1243,12 +1262,12 @@ deleteSlotBtn?.addEventListener("click", () => {
 renderSlots();
 
 // === Maps ===
+// (Maps 相關邏輯不變)
 const MAPS_KEY_LF = "tactic.maps.v1";
 const MAP_CURRENT_KEY_LF = "tactic.maps.current";
 const DEFAULT_MAP = { id: "default", name: "預設地圖", src: DEFAULT_BG_SRC, builtIn: true };
 let maps = [DEFAULT_MAP];
 let currentMapId = DEFAULT_MAP.id;
-
 async function loadMaps() {
   try {
     const stored = await localforage.getItem(MAPS_KEY_LF); 
@@ -1259,7 +1278,6 @@ async function loadMaps() {
     console.warn("讀取地圖列表失敗：", err);
     maps = [DEFAULT_MAP];
   }
-  
   const savedId = await localforage.getItem(MAP_CURRENT_KEY_LF); 
   if (savedId && maps.some((m) => m.id === savedId)) {
     currentMapId = savedId;
@@ -1267,7 +1285,6 @@ async function loadMaps() {
     currentMapId = DEFAULT_MAP.id;
   }
 }
-
 async function saveMaps() {
   const userMaps = maps.filter((m) => !m.builtIn);
   try {
@@ -1277,7 +1294,6 @@ async function saveMaps() {
     alert("儲存地圖失敗！瀏覽器儲存空間可能已滿。");
   }
 }
-
 function generateMapId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `map-${crypto.randomUUID()}`;
@@ -1304,30 +1320,26 @@ function updateMapButtons() {
   const map = maps.find((m) => m.id === currentMapId) ?? DEFAULT_MAP;
   if (deleteMapBtn) deleteMapBtn.disabled = !!map.builtIn;
 }
-
 async function setCurrentMap(id) {
   const map = maps.find((m) => m.id === id) ?? DEFAULT_MAP;
   currentMapId = map.id;
   if (mapSelect) mapSelect.value = currentMapId;
   updateMapButtons();
   if (BG.src !== map.src) {
-    BG.src = map.src;
+    BG.src = map.src; // 這會觸發 BG.onload -> handleBgLoad
   } else if (BG.complete) {
+    // 如果 src 相同但需要重新處理，手動觸發
     BG.dispatchEvent(new Event("load"));
   }
   await localforage.setItem(MAP_CURRENT_KEY_LF, currentMapId); 
 }
-
 mapSelect?.addEventListener("change", async () => {
   await setCurrentMap(mapSelect.value);
 });
-
 uploadMapBtn?.addEventListener("click", () => mapFileInput?.click());
-
 mapFileInput?.addEventListener("change", (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  
   const reader = new FileReader();
   reader.onload = async () => { 
     const name = prompt("輸入地圖名稱：", file.name.replace(/\.[^.]+$/, "")) || "自訂地圖";
@@ -1340,7 +1352,6 @@ mapFileInput?.addEventListener("change", (e) => {
   reader.readAsDataURL(file);
   mapFileInput.value = "";
 });
-
 deleteMapBtn?.addEventListener("click", async () => { 
   const map = maps.find((m) => m.id === currentMapId);
   if (!map || map.builtIn) return;
@@ -1355,10 +1366,20 @@ deleteMapBtn?.addEventListener("click", async () => {
 // === Initialization ===
 loadImages();
 
+// <-- MODIFIED: 修改 handleBgLoad 以動態調整物件尺寸
 function handleBgLoad(forceResetObjects = false) {
   const prev = { ...WORLD };
   WORLD.w = BG.naturalWidth || BG.width || WORLD.w;
   WORLD.h = BG.naturalHeight || BG.height || WORLD.h;
+
+  // 新增動態尺寸計算邏輯
+  // 以地圖寬度相對於設計寬度 (1280px) 來計算縮放因子
+  const sizeFactor = WORLD.w / DESIGN.w;
+  applySettings({
+    towerSize: ORIGINAL_SETTINGS.towerSize * sizeFactor,
+    flagSize: ORIGINAL_SETTINGS.flagSize * sizeFactor,
+    markerRadius: ORIGINAL_SETTINGS.markerRadius * sizeFactor,
+  });
 
   if (forceResetObjects || !hasInitialised) {
     objects = defaultDeploy(DESIGN.w, DESIGN.h);
@@ -1374,7 +1395,11 @@ function handleBgLoad(forceResetObjects = false) {
     resetHistory(); 
     updateCursor();
   } else {
-    scaleObjects(objects, prev.w, prev.h, WORLD.w, WORLD.h);
+    // 只有在不是從包含地圖的存檔載入時才縮放物件
+    // 從存檔載入時，物件座標已經是正確的了
+    if (prev.w !== WORLD.w || prev.h !== WORLD.h) {
+      scaleObjects(objects, prev.w, prev.h, WORLD.w, WORLD.h);
+    }
     swapSpritesByRegion();
     fitCanvas(false);
     resetView(false);
@@ -1398,3 +1423,5 @@ function handleBgLoad(forceResetObjects = false) {
     hintElement.textContent = "拖曳物件至垃圾桶刪除 · 雙擊可編輯標記/文字";
   }
 })();
+
+// --- END OF FILE board.js ---
