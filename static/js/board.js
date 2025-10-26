@@ -178,6 +178,8 @@ let isPanKey = false;
 let isPanning = false;
 let isMultiTouchPanning = false;
 let panLast = { x: 0, y: 0 };
+let initialPinchDist = null; // <-- [縮放] 新增
+let initialZoom = 1; // <-- [縮放] 新增
 
 // History
 const HISTORY_LIMIT = 80;
@@ -301,6 +303,16 @@ function screenToWorld(e) {
     x: (x - VIEW.offsetX) / scale,
     y: (y - VIEW.offsetY) / scale,
   };
+}
+
+// [縮放] 新增輔助函式
+function getPinchDist(touches) {
+  if (touches.length < 2) return 0;
+  const t1 = touches[0];
+  const t2 = touches[1];
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 function getTouchCenter(touches) {
@@ -488,6 +500,7 @@ function stopPan() {
   if (!isPanning) return;
   isPanning = false;
   isMultiTouchPanning = false;
+  initialPinchDist = null; // <-- [縮放] 重設
   updateCursor();
 }
 
@@ -804,7 +817,11 @@ function onPointerDown(e) {
     mode = "drag";
     scheduleLongPress(list, hit.idx);
   } else {
+    // <-- [空白處平移] 修改點
+    // 如果沒點到東西，且不是在其他工具模式下，就開始平移
+    startPan(e);
     mode = "idle";
+    // <-- [空白處平移] 修改結束
   }
   updateCursor();
 }
@@ -1033,6 +1050,7 @@ canvas.addEventListener("mouseup", onPointerUp);
 canvas.addEventListener("mouseleave", onMouseLeave);
 canvas.addEventListener("wheel", onWheel, { passive: false });
 
+// <-- [縮放] 修改 touchstart -->
 canvas.addEventListener(
   "touchstart",
   (e) => {
@@ -1041,7 +1059,9 @@ canvas.addEventListener(
       const center = getTouchCenter(e.touches);
       if (center) {
         isMultiTouchPanning = true;
-        startPanFromPointer(center);
+        startPanFromPointer(center); // 開始平移
+        initialPinchDist = getPinchDist(e.touches); // 儲存初始距離
+        initialZoom = VIEW.zoom; // 儲存初始縮放
       }
       return;
     }
@@ -1049,6 +1069,8 @@ canvas.addEventListener(
   },
   { passive: false }
 );
+
+// <-- [縮放] 修改 touchmove -->
 canvas.addEventListener(
   "touchmove",
   (e) => {
@@ -1057,16 +1079,41 @@ canvas.addEventListener(
       const center = getTouchCenter(e.touches);
       if (center) {
         if (!isPanning) {
+          // 備用：萬一 touchstart 沒觸發
           isMultiTouchPanning = true;
           startPanFromPointer(center);
+          initialPinchDist = getPinchDist(e.touches);
+          initialZoom = VIEW.zoom;
         } else {
-          updatePanFromPointer(center);
+          // --- 縮放邏輯 ---
+          if (initialPinchDist) {
+            const currentPinchDist = getPinchDist(e.touches);
+            const factor = currentPinchDist / initialPinchDist;
+            const newZoom = clampNumber(initialZoom * factor, VIEW.minZoom, VIEW.maxZoom, VIEW.zoom);
+
+            if (Math.abs(newZoom - VIEW.zoom) > 0.001) {
+              // 類似 onWheel，以雙指中心點為錨點縮放
+              const canvasPoint = getCanvasPointFromClient(center);
+              const scale = getScale();
+              const worldX = (canvasPoint.x - VIEW.offsetX) / scale;
+              const worldY = (canvasPoint.y - VIEW.offsetY) / scale;
+
+              VIEW.zoom = newZoom; // 設定新縮放
+              const newScale = getScale();
+
+              // 調整偏移
+              VIEW.offsetX = canvasPoint.x - worldX * newScale;
+              VIEW.offsetY = canvasPoint.y - worldY * newScale;
+            }
+          }
+          // --- 平移邏輯 ---
+          updatePanFromPointer(center); // 繼續平移
         }
       }
       return;
     }
     if (isMultiTouchPanning) {
-      stopPan();
+      stopPan(); // 從 2 指變 1 指，停止平移/縮放
       return;
     }
     if (e.touches.length > 0) onPointerMove(e.touches[0]);
@@ -1081,10 +1128,16 @@ canvas.addEventListener(
     e.preventDefault();
     if (isMultiTouchPanning) {
       if (e.touches.length >= 2) {
+        // 放開一指，但還剩兩指以上
         const center = getTouchCenter(e.touches);
-        if (center) updatePanFromPointer(center);
+        if (center) {
+          // 重設平移和縮放基準
+          startPanFromPointer(center);
+          initialPinchDist = getPinchDist(e.touches);
+          initialZoom = VIEW.zoom;
+        }
       } else {
-        stopPan();
+        stopPan(); // 手指都放開了
       }
       return;
     }
@@ -1106,6 +1159,8 @@ canvas.addEventListener(
   },
   { passive: false }
 );
+// <-- [縮放] 修改結束 -->
+
 
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
